@@ -2,7 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import { Shield, ArrowLeft, Plus, Trash2, Link as LinkIcon, Upload, X, Save, Image as ImageIcon, Video, Edit2 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { getBanners, addBanner, deleteBanner, updateBanner } from '../firebase/firestore';
-import { useAuth } from '../hooks/useAuth';
+import { useAuth } from '../context/AuthContext';
 
 export default function AdminDashboard() {
   const navigate = useNavigate();

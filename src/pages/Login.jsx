@@ -3,7 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { Mail, Lock, Eye, EyeOff, LogIn } from 'lucide-react';
 import { auth, googleProvider } from '../firebase/config';
 import { signInWithEmailAndPassword, signInWithPopup } from 'firebase/auth';
-import { useAuth } from '../hooks/useAuth';
+import { useAuth } from '../context/AuthContext';
 
 export default function Login() {
   const { login } = useAuth();

@@ -1,7 +1,7 @@
 import { Bell, User as UserIcon } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { useState } from 'react';
-import { useAuth } from '../hooks/useAuth';
+import { useAuth } from '../context/AuthContext';
 
 export default function TopHeader() {
   const location = useLocation();
