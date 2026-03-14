@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { ChevronLeft, Calendar, MapPin, User, MessageCircle, Heart, Send, Trash } from 'lucide-react';
 import { getEventBySlug, toggleLike, checkIfLiked, addComment, subscribeToComments, deleteComment } from '../firebase/firestore';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../hooks/useAuth';
 import PlaceholderImage from '../components/PlaceholderImage';
 import RegisterModal from '../components/RegisterModal';
 import EnquiryModal from '../components/EnquiryModal';

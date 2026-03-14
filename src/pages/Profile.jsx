@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { User as UserIcon, LogOut, Edit2, X, Shield, Mail, Phone, Calendar, Camera, Upload } from 'lucide-react';
 import { updateProfile as updateFirestoreProfile } from '../firebase/firestore';
 import { auth } from '../firebase/config';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../hooks/useAuth';
 
 export default function Profile() {
   const navigate = useNavigate();
