@@ -4,49 +4,6 @@ import { ArrowUpRight, Calendar, MapPin, ChevronLeft, ChevronRight, GraduationCa
 import { getBanners, getAboutText } from '../firebase/firestore';
 import PlaceholderImage from '../components/PlaceholderImage';
 
-// Fallback data removed - now using dynamic banners from Admin Dashboard
-
-const fallbackPreviousEvents = [
-  {
-    id: 'gcc-exhibition-2023',
-    slug: 'gcc-exhibition-2023',
-    title: 'GCC Exhibition 2023',
-    language: 'English / Arabic',
-    date: '10 - 12 October 2023',
-    location: 'ADNEC, Abu Dhabi, UAE',
-    image: '/events/gcc-exhibition-2024.png', // Temporary reuse
-  },
-  {
-    id: 'iue-dubai-2023',
-    slug: 'iue-dubai-2023',
-    title: 'International University Expo Dubai',
-    language: 'English',
-    date: 'March 2023',
-    location: 'World Trade Center, Dubai',
-    image: '/events/iue-riyadh.png', // Temporary reuse
-  },
-  {
-    id: 'edu-tech-2023',
-    slug: 'edu-tech-2023',
-    title: 'EduTech Middle East',
-    language: 'English / Arabic',
-    date: 'May 2023',
-    location: 'Riyadh, KSA',
-    image: '/events/gcc-exhibition-rak.png', // Temporary reuse
-  },
-  {
-    id: 'career-fair-2023',
-    slug: 'career-fair-2023',
-    title: 'National Career Fair',
-    language: 'Arabic / English',
-    date: 'November 2023',
-    location: 'Expo Centre Sharjah, UAE',
-    image: '/events/gcc-al-ain.png', // Temporary reuse
-  },
-];
-
-
-
 const solutionsData = [
   {
     icon: <GraduationCap size={28} />,
@@ -119,6 +76,259 @@ function useDragScroll() {
   };
 
   return { ref, onMouseDown, onMouseLeave, onMouseUp, onMouseMove };
+}
+
+const groupedPreviousEvents = [
+  {
+    id: 'gcc-exhibition',
+    title: 'GCC Exhibition',
+    summary: 'Connecting education, opportunity, and excellence across the GCC region.',
+    events: [
+      {
+        city: 'Abu Dhabi',
+        editions: [
+          { year: '2025', edition: '4', location: 'Etihad Arena', stats: '120+ institutions | 9,000+ students', details: 'Our largest edition in Abu Dhabi\'s premier venue' },
+          { year: '2024', edition: '3', location: 'Manarat, Al Saadiyat', stats: '70 exhibitors | 8,000+ attendees', details: 'Expanded reach with prestigious cultural venue' },
+          { year: '2023', edition: '2', location: 'Erth Hotel', stats: '40 universities | 6,000+ attendees', details: 'Doubled participation with enhanced programming' },
+          { year: '2022', edition: '1', location: 'Park Rotana Hotel', stats: '20 universities | 20,000 attendees', details: 'Inaugural edition establishing strong market presence' }
+        ],
+        officialSupport: 'Ministry of Education – UAE and Abu Dhabi Convention and Exhibition Bureau Partner'
+      },
+      {
+        city: 'Ras Al Khaimah',
+        date: '28-29 Oct 2025',
+        location: 'RAK Exhibition Center',
+        inauguratedBy: 'Sheikh Saqr Bin Saud Bin Saqr Al Qasimi',
+        inauguratedTitle: 'Chairman of RAK Ceramics',
+        stats: [
+          '50+ participating institutions',
+          '4,000+ student attendees',
+          'Support from RAK Department of Knowledge and RAK Chamber of Commerce & Industry'
+        ]
+      },
+      {
+        city: 'Al Ain',
+        date: '28-29 Apr 2025',
+        location: 'ADNEC Al Ain',
+        partnershipWith: 'Abu Dhabi Convention & Exhibition Bureau',
+        stats: [
+          '36 participating institutions',
+          '3,000+ attendees from across the UAE',
+          'Partnership with Destination Culture & Tourism'
+        ]
+      }
+    ]
+  },
+  {
+    id: 'iue',
+    title: 'International University Expo',
+    summary: 'Global higher education opportunities brought to the doorstep of prospective students.',
+    events: [
+      {
+        city: 'Riyadh',
+        editions: [
+          { 
+            year: '2025', 
+            edition: '2', 
+            location: 'Makarim Convention Center', 
+            date: 'January 2025',
+            stats: '41 exhibitors | 5,000+ visitors', 
+            details: 'Expanded partnerships — Growing our footprint with enhanced venue and increased attendance' 
+          },
+          { 
+            year: '2024', 
+            edition: '1', 
+            location: 'Makarim Convention Center', 
+            date: 'January 2024',
+            stats: '45+ universities from around the world | 3,000+ visitors', 
+            details: 'Licensed by local authorities — Established strong presence in the Kingdom\'s capital' 
+          }
+        ],
+        summary: 'Our Riyadh expos provide Saudi students and families direct access to prestigious international universities, with full support and licensing from local authorities.'
+      }
+    ]
+  },
+  {
+    id: 'btraining',
+    title: 'BTraining',
+    summary: 'Bahrain Exhibition for Training & Education Pre-Employment.',
+    events: [
+      {
+        city: 'Kingdom of Bahrain',
+        title: 'Bahrain Exhibition for Training & Education Pre-Employment',
+        patronage: 'Under the Patronage of the Minister of Labour, H.E Jameel Bin Mohammed Ali Humaidan',
+        partnership: 'In Partnership with Ministry of Education Bahrain',
+        history: 'Held for more than 13 years in a row, supporting job seekers and students on the verge of graduation.',
+        stats: 'Participation from more than 50 reputed Colleges, Universities and Training Institutes',
+        timeline: ['2024', '2023', '2022', '2021', '2020', '2019', '2018', '2017', '2016', '2015', '2014', '2013', '2012']
+      }
+    ]
+  },
+  {
+    id: 'u195',
+    title: 'Universities 195',
+    summary: 'Landmark Global Events connecting higher education institutions worldwide.',
+    events: [
+      {
+        city: 'Global Virtual Conference',
+        date: 'December 2021',
+        details: '6-Day Virtual Event',
+        stats: [
+          '195 universities and institutes worldwide',
+          '69 international speakers',
+          '11 Ministers of Education',
+          '20 Undersecretaries',
+          '85,000 attendees globally'
+        ]
+      }
+    ]
+  },
+  {
+    id: 'formal-edu',
+    title: '100 Years of Formal Education Forum',
+    summary: 'Celebrating a century of educational excellence in the region.',
+    events: [
+      {
+        city: 'Kingdom of Bahrain',
+        year: '2019',
+        stats: [
+          'Focus on global education development and policy',
+          'High-level government participation',
+          'International education leaders and policymakers'
+        ]
+      }
+    ]
+  }
+];
+
+function EventAccordion({ group }) {
+  const [isOpen, setIsOpen] = useState(false);
+
+  return (
+    <div className={`event-accordion-group ${isOpen ? 'is-open' : ''}`}>
+      <button 
+        className="accordion-header" 
+        onClick={() => setIsOpen(!isOpen)}
+        aria-expanded={isOpen}
+      >
+        <div className="header-info">
+          <h3 className="group-title">{group.title}</h3>
+          <p className="group-summary">{group.summary}</p>
+        </div>
+        <div className="accordion-icon">
+          <ChevronRight size={20} className={isOpen ? 'rotate-90' : ''} />
+        </div>
+      </button>
+
+      <div className="accordion-content">
+        <div className="accordion-content-inner">
+          {group.events.length > 0 ? (
+            <div className="nested-events-list">
+              {group.events.map((event, idx) => (
+                <div key={idx} className="nested-event-card">
+                  <div className="nested-event-header">
+                    <h4>{event.city || event.title}</h4>
+                    {event.date && <span className="event-date-tag">{event.date}</span>}
+                    {event.year && <span className="event-date-tag">{event.year}</span>}
+                  </div>
+                  
+                  {/* Summary for groups like Riyadh Expo */}
+                  {event.summary && <p className="event-group-summary-text">{event.summary}</p>}
+
+                  {/* Patronage & Partnership (e.g. BTraining) */}
+                  {(event.patronage || event.partnership) && (
+                    <div className="event-patronage-box">
+                      {event.patronage && <p className="patronage-text">{event.patronage}</p>}
+                      {event.partnership && <p className="partnership-text">{event.partnership}</p>}
+                    </div>
+                  )}
+
+                  {/* History/Introduction text */}
+                  {event.history && <p className="event-history-intro">{event.history}</p>}
+
+                  {/* Timeline Grid (e.g. BTraining) */}
+                  {event.timeline && (
+                    <div className="event-timeline-grid">
+                      {event.timeline.map((year, yIdx) => (
+                        <div key={yIdx} className={`timeline-year-chip ${yIdx % 2 === 0 ? 'even' : 'odd'}`}>
+                          {year}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  
+                  {event.editions ? (
+                    <div className="editions-list">
+                      {event.editions.map((ed, edIdx) => (
+                        <div key={edIdx} className="edition-row">
+                          <div className="edition-badge">
+                            <span className="ed-label">EDITION</span>
+                            <span className="ed-num">{ed.edition}</span>
+                          </div>
+                          <div className="edition-main">
+                            <div className="ed-top">
+                              <span className="ed-year">{ed.year}</span>
+                              <span className="ed-location">{ed.location}</span>
+                            </div>
+                            {ed.date && <p className="ed-date-sub">{ed.date}</p>}
+                            <p className="ed-stats">{ed.stats}</p>
+                            <p className="ed-details">{ed.details}</p>
+                          </div>
+                        </div>
+                      ))}
+                      {event.officialSupport && (
+                        <div className="official-support">
+                          <strong>Official Support:</strong> {event.officialSupport}
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="event-simple-details">
+                      {(event.location || event.details) && (
+                        <div className="detail-row">
+                          <MapPin size={14} />
+                          <span>{event.location || event.details}</span>
+                        </div>
+                      )}
+                      {event.inauguratedBy && (
+                        <div className="inauguration-badge">
+                          <span className="in-label">Inaugurated by:</span>
+                          <span className="in-name">{event.inauguratedBy}</span>
+                          <span className="in-title">{event.inauguratedTitle}</span>
+                        </div>
+                      )}
+                      
+                      {event.stats && Array.isArray(event.stats) && (
+                        <ul className="stats-list">
+                          {event.stats.map((stat, sIdx) => (
+                            <li key={sIdx}>{stat}</li>
+                          ))}
+                        </ul>
+                      )}
+
+                      {event.stats && typeof event.stats === 'string' && (
+                        <p className="simple-stats-text">{event.stats}</p>
+                      )}
+
+                      {event.partnershipWith && (
+                        <div className="partnership-tag">
+                          In Partnership with <strong>{event.partnershipWith}</strong>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="empty-group-message">
+              <p>Details for this group will be added soon. Stay tuned!</p>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export default function Home() {
@@ -377,36 +587,12 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ── Previous Events — Grid List ── */}
+      {/* ── Previous Events — Grouped Accordions ── */}
       <section className="app-section previous-events-section">
         <h2 className="section-title-app">Previous Events</h2>
-        <div className="previous-events-grid">
-          {fallbackPreviousEvents.map(event => (
-            <div 
-              key={event.id} 
-              className="previous-event-card"
-              onClick={() => navigate(`/event/${event.slug}`, { state: { event } })}
-            >
-              <div className="previous-event-image-container">
-                <img src={event.image} alt={event.title} className="previous-event-image" />
-                <div className="previous-event-overlay">
-                  <ArrowUpRight size={20} color="white" />
-                </div>
-              </div>
-              <div className="previous-event-details">
-                <h3 className="previous-event-title">{event.title}</h3>
-                <div className="previous-event-meta">
-                  <div className="meta-item">
-                    <Calendar size={14} />
-                    <span>{event.date}</span>
-                  </div>
-                  <div className="meta-item">
-                    <MapPin size={14} />
-                    <span>{event.location}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
+        <div className="previous-events-accordions">
+          {groupedPreviousEvents.map(group => (
+            <EventAccordion key={group.id} group={group} />
           ))}
         </div>
       </section>

@@ -54,6 +54,7 @@ const fallbackEvents = [
 export default function EventDetail() {
   const { slug } = useParams();
   const navigate = useNavigate();
+  const location = useLocation(); // Required to access the passed state
   const { user } = useAuth();
   
   // Use passed state if available for instant loading
