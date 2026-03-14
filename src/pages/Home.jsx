@@ -465,19 +465,23 @@ export default function Home() {
 
                   <div className="app-event-info">
                     <div className="app-event-info-item">
-                      <Calendar 
-                        size={14} 
-                        className="info-icon" 
-                        style={{ color: banner.eventColor || 'var(--color-primary-light)' }} 
-                      />
+                      <div className="icon-circle">
+                        <Calendar 
+                          size={14} 
+                          className="info-icon" 
+                          style={{ color: 'white' }} 
+                        />
+                      </div>
                       <span>{banner.date}</span>
                     </div>
                     <div className="app-event-info-item">
-                      <MapPin 
-                        size={14} 
-                        className="info-icon"
-                        style={{ color: banner.eventColor || 'var(--color-primary-light)' }}
-                      />
+                      <div className="icon-circle">
+                        <MapPin 
+                          size={14} 
+                          className="info-icon"
+                          style={{ color: 'white' }}
+                        />
+                      </div>
                       <span>{banner.location}</span>
                     </div>
                   </div>

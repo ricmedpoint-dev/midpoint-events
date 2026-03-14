@@ -47,7 +47,11 @@ function AppLayout() {
           <Route path="/event/:slug" element={<EventDetail />} />
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<SignUp />} />
-          <Route path="/profile" element={<Profile />} />
+          <Route path="/profile" element={
+            <ProtectedRoute>
+              <Profile />
+            </ProtectedRoute>
+          } />
           <Route path="/admin" element={
             <ProtectedRoute adminOnly>
               <AdminDashboard />

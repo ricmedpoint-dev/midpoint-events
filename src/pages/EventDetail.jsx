@@ -212,19 +212,23 @@ export default function EventDetail() {
         
         <div className="detail-info-list">
           <div className="info-item">
-            <Calendar 
-              size={18} 
-              className="info-icon" 
-              style={{ color: event.eventColor || '#999' }}
-            />
+            <div className="icon-circle">
+              <Calendar 
+                size={18} 
+                className="info-icon" 
+                style={{ color: event.eventColor || '#999' }}
+              />
+            </div>
             <span>{event.date}</span>
           </div>
           <div className="info-item">
-            <MapPin 
-              size={18} 
-              className="info-icon"
-              style={{ color: event.eventColor || '#999' }}
-            />
+            <div className="icon-circle">
+              <MapPin 
+                size={18} 
+                className="info-icon"
+                style={{ color: event.eventColor || '#999' }}
+              />
+            </div>
             <span>{event.location}</span>
           </div>
         </div>

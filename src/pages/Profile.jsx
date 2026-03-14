@@ -156,20 +156,19 @@ export default function Profile() {
 
   if (loading) return <div className="loading-state">Loading...</div>;
 
-  const initials = (user?.name || 'U').split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
-  const joinDate = user?.createdAt ? new Date(user.createdAt).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) : 'Recently joined';
+  const joinDate = user?.createdAt ? new Date(user.createdAt).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) : null;
   const avatarSrc = user?.photoURL && !imgError ? user.photoURL : '/default-avatar.png';
 
   return (
     <div className="profile-page">
-      {/* Profile Card */}
-      <div className="profile-card">
-        <div className="profile-card-top">
-          <div className="profile-avatar-large" onClick={() => setShowZoomModal(true)}>
+      <div className="profile-container">
+        {/* Profile Header Block */}
+        <div className="profile-header-card">
+          <div className="profile-avatar-wrapper" onClick={() => setShowZoomModal(true)}>
             <img 
               src={avatarSrc} 
               alt={user?.name} 
-              className="avatar-img" 
+              className="profile-avatar-large" 
               onError={() => setImgError(true)}
             />
             {isUploading && (
@@ -177,54 +176,77 @@ export default function Profile() {
                 <div className="spinner-small"></div>
               </div>
             )}
-            {isAdmin && (
-              <div className="admin-badge-avatar" title="Administrator">
-                <Shield size={14} fill="currentColor" />
-              </div>
-            )}
-            <div className="avatar-edit-hint">
-              <Camera size={16} />
+            <div className="avatar-edit-icon">
+              <Camera size={18} />
             </div>
           </div>
           
-          <h1 className="profile-display-name">{user?.name || 'User'}</h1>
-          {isAdmin && <span className="admin-tag">Administrator</span>}
+          <div className="profile-header-info">
+            <div className="name-admin-row">
+              <h1 className="profile-display-name">{user?.name || 'User'}</h1>
+              {isAdmin && (
+                <div className="admin-status-badge">
+                  <Shield size={14} fill="currentColor" />
+                  <span>Admin</span>
+                </div>
+              )}
+            </div>
+            <p className="profile-join-text">
+              <Calendar size={14} />
+              {joinDate ? `Joined ${joinDate}` : 'Recently joined'}
+            </p>
+          </div>
 
-
-          <div className="profile-top-actions">
-            <button className="profile-action-btn edit-btn" onClick={() => setShowEditModal(true)}>
+          <div className="profile-header-actions">
+            <button className="profile-btn-primary" onClick={() => setShowEditModal(true)}>
               <Edit2 size={16} />
               <span>Edit Profile</span>
             </button>
             {isAdmin && (
-              <button className="profile-action-btn admin-dashboard-pill" onClick={() => navigate('/admin')}>
+              <button className="profile-btn-secondary" onClick={() => navigate('/admin')}>
                 <Shield size={16} />
-                <span>Dashboard</span>
+                <span>Admin Dashboard</span>
               </button>
             )}
           </div>
         </div>
 
-        <div className="profile-info-list">
-          <div className="profile-info-item">
-            <Calendar size={20} />
-            <span>Joined {joinDate}</span>
+        {/* Profile Content Grid */}
+        <div className="profile-content-grid">
+          <div className="profile-info-section">
+            <h3 className="section-title">Contact Information</h3>
+            <div className="info-cards-list">
+              <div className="info-card">
+                <div className="profile-info-icon"><Phone size={20} /></div>
+                <div className="info-content">
+                  <label>Phone Number</label>
+                  <p>{user?.phone || 'No phone provided'}</p>
+                </div>
+              </div>
+              <div className="info-card">
+                <div className="profile-info-icon"><Mail size={20} /></div>
+                <div className="info-content">
+                  <label>Email Address</label>
+                  <p>{user?.email} <span className={`verification-badge ${auth.currentUser?.emailVerified ? 'verified' : 'pending'}`}>
+                    {auth.currentUser?.emailVerified ? 'Verified' : 'Pending'}
+                  </span></p>
+                </div>
+              </div>
+            </div>
           </div>
-          <div className="profile-info-item">
-            <Phone size={20} />
-            <span>{user?.phone || 'No phone provided'}</span>
-          </div>
-          <div className="profile-info-item">
-            <Mail size={20} />
-            <span>{user?.email} ({auth.currentUser?.emailVerified ? 'Verified' : 'Pending'})</span>
-          </div>
-        </div>
 
-        <div className="profile-actions">
-          <button className="profile-action-btn logout-btn" onClick={handleLogout}>
-            <LogOut size={18} />
-            <span>Sign Out</span>
-          </button>
+          <div className="profile-settings-section">
+            <h3 className="section-title">Account Settings</h3>
+            <div className="settings-options">
+              <button className="settings-option-item logout" onClick={handleLogout}>
+                <LogOut size={20} />
+                <div className="option-text">
+                  <p>Sign Out</p>
+                  <span>Securely log out of your account</span>
+                </div>
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 
