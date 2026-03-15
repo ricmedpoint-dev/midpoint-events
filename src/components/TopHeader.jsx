@@ -27,7 +27,7 @@ export default function TopHeader() {
             Events
           </Link>
           <Link to="/register" className={`header-nav-link ${location.pathname === '/register' ? 'active' : ''}`}>
-            Register
+            About Us
           </Link>
           {isAdmin && (
             <Link to="/admin" className={`header-nav-link ${location.pathname === '/admin' ? 'active' : ''}`}>

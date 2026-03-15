@@ -201,6 +201,13 @@ const groupedPreviousEvents = [
   }
 ];
 
+const academicPartners = [
+  '/images/partners/partners-1.png',
+  '/images/partners/partners-2.png',
+  '/images/partners/partners-3.png',
+  '/images/partners/partners-4.png',
+];
+
 function EventAccordion({ group }) {
   const [isOpen, setIsOpen] = useState(false);
 
@@ -338,8 +345,34 @@ export default function Home() {
   const navigate = useNavigate();
 
   const [activeEventIndex, setActiveEventIndex] = useState(0);
+  const [activePartnerIndex, setActivePartnerIndex] = useState(0);
+  
   const eventsDrag = useDragScroll();
   const carouselRef = eventsDrag.ref;
+  
+  const partnersDrag = useDragScroll();
+  const partnersCarouselRef = partnersDrag.ref;
+
+  const handlePartnerScroll = () => {
+    if (partnersCarouselRef.current) {
+      const scrollLeft = partnersCarouselRef.current.scrollLeft;
+      const width = partnersCarouselRef.current.offsetWidth;
+      const index = Math.round(scrollLeft / width);
+      if (index !== activePartnerIndex && index >= 0 && index < academicPartners.length) {
+        setActivePartnerIndex(index);
+      }
+    }
+  };
+
+  const scrollToPartner = (index) => {
+    const wrappedIndex = ((index % academicPartners.length) + academicPartners.length) % academicPartners.length;
+    if (partnersCarouselRef.current) {
+      partnersCarouselRef.current.scrollTo({
+        left: wrappedIndex * partnersCarouselRef.current.offsetWidth,
+        behavior: 'smooth',
+      });
+    }
+  };
 
   const handleScroll = () => {
     if (carouselRef.current) {
@@ -598,6 +631,41 @@ export default function Home() {
           {groupedPreviousEvents.map(group => (
             <EventAccordion key={group.id} group={group} />
           ))}
+        </div>
+      </section>
+
+      {/* ── Academic Partners Slider ── */}
+      <section className="app-section academic-partners-section">
+        <h2 className="section-title-app">Academic Partners</h2>
+        <div className="partners-slider-container">
+          <div 
+            className="partners-carousel hide-scrollbar"
+            ref={partnersCarouselRef}
+            onMouseDown={partnersDrag.onMouseDown}
+            onMouseLeave={partnersDrag.onMouseLeave}
+            onMouseUp={partnersDrag.onMouseUp}
+            onMouseMove={partnersDrag.onMouseMove}
+            onScroll={handlePartnerScroll}
+            style={{ cursor: 'grab' }}
+          >
+            {academicPartners.map((src, idx) => (
+              <div key={idx} className="partner-slide">
+                <img src={src} alt={`Academic Partners ${idx + 1}`} className="partner-screenshot" />
+              </div>
+            ))}
+          </div>
+          
+          {/* Slider dots */}
+          <div className="partner-slider-dots">
+            {academicPartners.map((_, i) => (
+              <button
+                key={i}
+                className={`partner-dot ${i === activePartnerIndex ? 'active' : ''}`}
+                onClick={() => scrollToPartner(i)}
+                aria-label={`Go to slide ${i + 1}`}
+              />
+            ))}
+          </div>
         </div>
       </section>
 
