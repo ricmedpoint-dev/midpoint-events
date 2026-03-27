@@ -6,10 +6,11 @@ export default function RegisterModal({ isOpen, onClose, event }) {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState(null);
-  const [user] = useState(JSON.parse(localStorage.getItem('user')) || { name: 'Guest User', email: '' });
+  const [user] = useState(JSON.parse(localStorage.getItem('user')) || null);
   
   const [formData, setFormData] = useState({
-    fullName: user.name,
+    fullName: user?.name || '',
+    email: user?.email || '',
     phone: '',
     role: '',
     country: '',
@@ -28,8 +29,8 @@ export default function RegisterModal({ isOpen, onClose, event }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!user.email && !formData.email) {
-       setError("Please log in to register.");
+    if (!formData.email) {
+       setError("Please provide an email to register.");
        return;
     }
     setLoading(true);
@@ -76,8 +77,20 @@ export default function RegisterModal({ isOpen, onClose, event }) {
               <h2 className="event-title-context">{event?.title || 'Event Registration'}</h2>
               
               <div className="user-welcome-section">
-                <p className="welcome-text">Hi {user.name}!</p>
-                <p className="user-email-text">{user.email || 'Please complete your profile'}</p>
+                <p className="welcome-text">{user ? `Hi ${user.name}!` : 'Attend Event'}</p>
+                {user && <p className="user-email-text">{user.email}</p>}
+                {!user && (
+                  <div className="refined-form-group" style={{ marginBottom: '15px' }}>
+                    <label>Email Address</label>
+                    <input 
+                      type="email" 
+                      value={formData.email}
+                      placeholder="Enter your email"
+                      onChange={(e) => setFormData({...formData, email: e.target.value})}
+                      required 
+                    />
+                  </div>
+                )}
               </div>
 
               <p className="form-instruction">Please fill up the form to register.</p>
@@ -151,7 +164,7 @@ export default function RegisterModal({ isOpen, onClose, event }) {
                 </div>
 
                 <button type="submit" className="refined-submit-btn" disabled={loading}>
-                  {loading ? 'Registering...' : 'Register Now'}
+                  {loading ? 'Processing...' : 'REGISTER FOR FREE'}
                 </button>
               </form>
             </>

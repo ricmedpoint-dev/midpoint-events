@@ -68,7 +68,18 @@ export default function EventDetail() {
   const [likesCount, setLikesCount] = useState(event?.likesCount || 0);
   const [comments, setComments] = useState([]);
   const [newComment, setNewComment] = useState('');
+  const [guestName, setGuestName] = useState('');
   const [isSubmittingComment, setIsSubmittingComment] = useState(false);
+  
+  // Guest ID management
+  const [guestId] = useState(() => {
+    let id = localStorage.getItem('midpoint_guest_id');
+    if (!id) {
+      id = 'guest-' + Math.random().toString(36).substr(2, 9);
+      localStorage.setItem('midpoint_guest_id', id);
+    }
+    return id;
+  });
 
   useEffect(() => {
     if (event && event.slug === slug) {
@@ -105,10 +116,11 @@ export default function EventDetail() {
 
   // Social Effects
   useEffect(() => {
-    if (event?.id && user?.uid) {
-      checkIfLiked(event.id, user.uid).then(setLiked);
+    const currentUserId = user?.uid || guestId;
+    if (event?.id && currentUserId) {
+      checkIfLiked(event.id, currentUserId).then(setLiked);
     }
-  }, [event?.id, user?.uid]);
+  }, [event?.id, user?.uid, guestId]);
 
   useEffect(() => {
     if (event?.id) {
@@ -118,10 +130,8 @@ export default function EventDetail() {
   }, [event?.id]);
 
   const handleLike = async () => {
-    if (!user) {
-      alert("Please login to like events.");
-      return;
-    }
+    const currentUserId = user?.uid || guestId;
+    if (!currentUserId) return;
     
     // Optimistic UI
     const prevLiked = liked;
@@ -130,7 +140,7 @@ export default function EventDetail() {
     setLikesCount(prev => prevLiked ? prev - 1 : prev + 1);
     
     try {
-      await toggleLike(event.id, user.uid);
+      await toggleLike(event.id, currentUserId);
     } catch (err) {
       setLiked(prevLiked);
       setLikesCount(prevCount);
@@ -140,23 +150,27 @@ export default function EventDetail() {
 
   const handleComment = async (e) => {
     e.preventDefault();
-    if (!user) {
-      alert("Please login to comment.");
+    if (!newComment.trim() || isSubmittingComment) return;
+    
+    // Require name for guests
+    if (!user && !guestName.trim()) {
+      alert("Please provide your name to comment.");
       return;
     }
-    if (!newComment.trim() || isSubmittingComment) return;
 
     setIsSubmittingComment(true);
     const commentData = {
-      userId: user.uid,
-      userName: user.name || 'User',
-      userPhoto: user.photoURL || null,
-      text: newComment.trim()
+      userId: user?.uid || guestId,
+      userName: user?.name || guestName.trim() || 'Visitor',
+      userPhoto: user?.photoURL || null,
+      text: newComment.trim(),
+      isGuest: !user
     };
 
     try {
       await addComment(event.id, commentData);
       setNewComment('');
+      // Keep guestName for convenience
     } catch (err) {
       alert("Failed to add comment.");
     } finally {
@@ -253,16 +267,28 @@ export default function EventDetail() {
           </div>
 
           <form className="comment-form" onSubmit={handleComment}>
-            <input 
-              type="text" 
-              placeholder={user ? "Add a comment..." : "Login to comment"} 
-              value={newComment}
-              onChange={(e) => setNewComment(e.target.value)}
-              disabled={!user || isSubmittingComment}
-            />
-            <button type="submit" disabled={!user || !newComment.trim() || isSubmittingComment}>
-              <Send size={18} />
-            </button>
+            {!user && (
+              <input 
+                type="text" 
+                placeholder="Your Name" 
+                className="guest-name-input"
+                value={guestName}
+                onChange={(e) => setGuestName(e.target.value)}
+                required
+              />
+            )}
+            <div className="comment-input-row">
+              <input 
+                type="text" 
+                placeholder="Add a comment..." 
+                value={newComment}
+                onChange={(e) => setNewComment(e.target.value)}
+                disabled={isSubmittingComment}
+              />
+              <button type="submit" disabled={!newComment.trim() || isSubmittingComment}>
+                <Send size={18} />
+              </button>
+            </div>
           </form>
 
           <div className="comments-list">
@@ -283,7 +309,7 @@ export default function EventDetail() {
                         <span className="comment-date">
                           {new Date(comment.createdAt).toLocaleDateString()}
                         </span>
-                        {(user?.uid === comment.userId || user?.email === 'admin@midpoint.ae') && (
+                        {(user?.uid === comment.userId || guestId === comment.userId || user?.email === 'admin@midpoint.ae') && (
                           <button 
                             className="comment-delete-btn"
                             onClick={() => handleDeleteComment(comment.id)}
@@ -310,10 +336,10 @@ export default function EventDetail() {
         <button 
           className="btn-register" 
           onClick={() => setShowRegisterModal(true)}
-          style={{ backgroundColor: event.eventColor || '#E31E24' }}
+          style={{ '--btn-color': event?.eventColor || '#E31E24' }}
         >
           <User size={18} />
-          <span>Register Now</span>
+          <span>REGISTER FOR FREE</span>
         </button>
         <button className="btn-enquire" onClick={() => setShowEnquiryModal(true)}>
           <MessageCircle size={18} />

@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
-import { Home, User } from 'lucide-react';
+import { Home, Calendar } from 'lucide-react';
 
 export default function BottomNav() {
   const location = useLocation();
@@ -16,12 +16,12 @@ export default function BottomNav() {
           <span>Home</span>
         </Link>
         <Link
-          to="/profile"
-          className={`bottom-nav-item ${location.pathname === '/profile' ? 'active' : ''}`}
-          id="nav-profile"
+          to="/events"
+          className={`bottom-nav-item ${location.pathname === '/events' ? 'active' : ''}`}
+          id="nav-events"
         >
-          <User size={22} strokeWidth={2.5} />
-          <span>Profile</span>
+          <Calendar size={22} strokeWidth={2.5} />
+          <span>Events</span>
         </Link>
       </div>
     </nav>

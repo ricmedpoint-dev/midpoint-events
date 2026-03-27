@@ -1179,11 +1179,11 @@ button {
 }
 
 .btn-register {
-  background: #E31E24;
+  background: var(--btn-color, #E31E24);
 }
 
 .btn-register:hover {
-  background: #B71518;
+  filter: brightness(0.85);
 }
 
 .btn-enquire {
@@ -1247,18 +1247,39 @@ button {
 
 .comment-form {
   display: flex;
+  flex-direction: column;
   gap: 12px;
-  margin-bottom: 32px;
+  margin-bottom: 24px;
 }
 
-.comment-form input {
+.guest-name-input {
+  width: 100%;
+  padding: 10px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--color-gray-200);
+  font-size: 14px;
+  background: var(--color-gray-50);
+  transition: all 0.2s ease;
+}
+
+.guest-name-input:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  background: white;
+  box-shadow: 0 0 0 3px rgba(227, 30, 36, 0.1);
+}
+
+.comment-input-row {
+  display: flex;
+  gap: 10px;
+}
+
+.comment-input-row input {
   flex: 1;
-  background: #f8f9fa;
-  border: 1px solid transparent;
-  padding: 14px 20px;
-  border-radius: var(--radius-lg);
-  font-size: 0.95rem;
-  transition: all 0.3s ease;
+  padding: 10px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--color-gray-200);
+  font-size: 14px;
 }
 
 .comment-form input:focus {
@@ -2535,6 +2556,7 @@ button {
 }
 
 .refined-submit-btn:hover {
+  background: var(--color-primary-dark);
   transform: translateY(-2px);
   box-shadow: 0 12px 28px rgba(0, 0, 0, 0.2);
 }
@@ -3794,7 +3816,7 @@ button {
   backdrop-filter: blur(4px);
   color: white;
   padding: 4px 10px;
-  border-radius: var(--radius-full);
+  border-radius: 6px;
   font-size: 0.7rem;
   font-weight: 700;
   text-transform: uppercase;

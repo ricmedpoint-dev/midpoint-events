@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { Shield, ArrowLeft, Plus, Trash2, Link as LinkIcon, Upload, X, Save, Image as ImageIcon, Video, Edit2 } from 'lucide-react';
+import { Shield, ArrowLeft, Plus, Trash2, Link as LinkIcon, Upload, X, Save, Image as ImageIcon, Video, Edit2, Home } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { getBanners, addBanner, deleteBanner, updateBanner } from '../firebase/firestore';
 import { useAuth } from '../context/AuthContext';
@@ -251,9 +251,9 @@ export default function AdminDashboard() {
   return (
     <div className="admin-dashboard-page">
       <div className="admin-dashboard-content">
-        <button className="admin-back-btn-minimal" onClick={() => navigate('/profile')}>
+        <button className="admin-back-btn-minimal" onClick={() => navigate('/')}>
           <ArrowLeft size={18} />
-          <span>Profile</span>
+          <span>Home</span>
         </button>
 
         {showAddBanner && (
