@@ -22,8 +22,27 @@ service cloud.firestore {
     match /registrations/{document=**} {
       allow create: if true;
     }
+    // allow anyone to submit enquiries
     match /enquiries/{document=**} {
       allow create: if true;
+    }
+
+    // allow anyone to register for events (old structure fallback)
+    match /events/{eventId}/registrants_individual/{document=**} {
+      allow create: if true;
+    }
+    match /events/{eventId}/registrants_school/{document=**} {
+      allow create: if true;
+    }
+
+    // new nested structure: events/{year}/{eventCode}/{type}/registrants/{email}
+    match /events/{year}/{eventCode}/{type}/registrants/{email} {
+      allow create, update: if true;
+    }
+    
+    // allow anyone to read/update the registration sequence counter
+    match /counters/registrationSequence {
+      allow read, write: if true;
     }
 
     match /likes/{likeId} {

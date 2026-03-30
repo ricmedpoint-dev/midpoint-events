@@ -20,6 +20,8 @@ export default function AdminDashboard() {
     date: '',
     startDate: '', // Store for the picker
     endDate: '',   // Store for the picker
+    eventTime: '', // New field for EmailJS
+    eventCode: '', // New field for code generation (e.g. GCCAD)
     location: '',
     description: '',
     eventColor: '#E31E24',
@@ -186,6 +188,8 @@ export default function AdminDashboard() {
         date: '',
         startDate: '',
         endDate: '',
+        eventTime: '',
+        eventCode: '',
         location: '',
         language: 'English / Arabic',
         mediaUrl: '',
@@ -208,6 +212,8 @@ export default function AdminDashboard() {
       date: banner.date || '',
       startDate: banner.startDate || '',
       endDate: banner.endDate || '',
+      eventTime: banner.eventTime || '',
+      eventCode: banner.eventCode || '',
       location: banner.location || '',
       description: banner.description || '',
       eventColor: banner.eventColor || '#E31E24',
@@ -226,6 +232,8 @@ export default function AdminDashboard() {
     setFormData({
       title: '',
       date: '',
+      eventTime: '',
+      eventCode: '',
       location: '',
       description: '',
       eventColor: '#E31E24',
@@ -333,12 +341,30 @@ export default function AdminDashboard() {
                   <small className="field-hint">Edit this field manually to override the picker</small>
                 </div>
                 <div className="admin-field">
+                  <label>Event Code (Unique ID for QR)</label>
+                  <input
+                    required
+                    value={formData.eventCode}
+                    onChange={e => setFormData({ ...formData, eventCode: e.target.value.toUpperCase().replace(/\s+/g, '') })}
+                    placeholder="e.g., GCCAD"
+                  />
+                  <small className="field-hint">Used for code: GCCAD-0000012026</small>
+                </div>
+                <div className="admin-field">
                   <label>Location</label>
                   <input
                     required
                     value={formData.location}
                     onChange={e => setFormData({ ...formData, location: e.target.value })}
                     placeholder="e.g., Manarat, Al Saadiyat, UAE"
+                  />
+                </div>
+                <div className="admin-field">
+                  <label>Event Time (for Emails)</label>
+                  <input
+                    value={formData.eventTime}
+                    onChange={e => setFormData({ ...formData, eventTime: e.target.value })}
+                    placeholder="e.g., 9:00 AM - 4:00 PM"
                   />
                 </div>
                 <div className="admin-field">

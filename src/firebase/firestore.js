@@ -26,7 +26,7 @@ export async function getHighlights() {
 // ── Banners ──
 export async function getBanners() {
   const q = query(
-    collection(db, 'banners'), 
+    collection(db, 'banners'),
     orderBy('order', 'asc'),
     orderBy('createdAt', 'desc')
   );
@@ -76,7 +76,7 @@ export async function getEventBySlug(slug) {
   // We need to check both a stored slug and a title-generated slug
   const qBanners = query(collection(db, 'banners'));
   const snapBanners = await getDocs(qBanners);
-  
+
   const banner = snapBanners.docs.find(d => {
     const data = d.data();
     const bannerSlug = data.slug || data.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
@@ -106,6 +106,62 @@ export async function getAboutText() {
 }
 
 // ── Registrants ──
+export async function registerParticipant(eventId, type, data) {
+  if (!eventId || !type) throw new Error("Missing eventId or registration type");
+
+  const sequenceRef = doc(db, 'counters', 'registrationSequence');
+  const currentYear = new Date().getFullYear().toString();
+  const collectionName = type === 'individual' ? 'registrants_individual' : 'registrants_school';
+  const emailId = data.email.toLowerCase().replace(/\s+/g, '');
+
+  try {
+    return await runTransaction(db, async (transaction) => {
+      // 1. Get the event code
+      let eventCode = 'GCC'; // Default fallback
+      const bannerRef = doc(db, 'banners', eventId);
+      const bannerSnap = await transaction.get(bannerRef);
+      if (bannerSnap.exists()) {
+        eventCode = bannerSnap.data().eventCode || 'GCC';
+      } else {
+        const eventRef = doc(db, 'events', eventId);
+        const eventSnap = await transaction.get(eventRef);
+        if (eventSnap.exists()) {
+          eventCode = eventSnap.data().eventCode || 'GCC';
+        }
+      }
+
+      // 2. Get the current global sequence number
+      const sequenceSnap = await transaction.get(sequenceRef);
+      let nextValue = 1;
+
+      if (sequenceSnap.exists()) {
+        nextValue = sequenceSnap.data().lastValue + 1;
+      }
+
+      // 3. Format the code (e.g., GCCAD-0000012026)
+      const registrationCode = `${eventCode}-${String(nextValue).padStart(6, '0')}${currentYear}`;
+
+      // 4. Create the registration document using email as ID
+      // Path: events/{year}/{eventCode}/{type}/registrants/{email}
+      const newDocRef = doc(db, 'events', currentYear, eventCode, collectionName, 'registrants', emailId);
+
+      transaction.set(newDocRef, {
+        ...data,
+        registrationCode,
+        createdAt: new Date().toISOString(),
+      });
+
+      // 5. Update the sequence counter
+      transaction.set(sequenceRef, { lastValue: nextValue }, { merge: true });
+
+      return { id: emailId, registrationCode };
+    });
+  } catch (error) {
+    console.error("Error in registerParticipant transaction:", error);
+    throw error;
+  }
+}
+
 export async function addRegistrant(data) {
   const colRef = collection(db, 'registrants');
   const docRef = await addDoc(colRef, {
@@ -150,7 +206,7 @@ export async function getUserProfile(uid) {
  */
 export async function toggleLike(bannerId, userId) {
   if (!bannerId || !userId) return;
-  
+
   const likeId = `${bannerId}_${userId}`;
   const likeRef = doc(db, 'likes', likeId);
   const bannerRef = doc(db, 'banners', bannerId);
@@ -158,7 +214,7 @@ export async function toggleLike(bannerId, userId) {
   try {
     await runTransaction(db, async (transaction) => {
       const likeSnap = await transaction.get(likeRef);
-      
+
       if (likeSnap.exists()) {
         // Unlike
         transaction.delete(likeRef);
@@ -196,7 +252,7 @@ export async function checkIfLiked(bannerId, userId) {
  */
 export async function addComment(bannerId, commentData) {
   if (!bannerId) return;
-  
+
   const commentsCol = collection(db, 'comments');
   const bannerRef = doc(db, 'banners', bannerId);
 
@@ -206,11 +262,11 @@ export async function addComment(bannerId, commentData) {
       ...commentData,
       createdAt: new Date().toISOString()
     });
-    
+
     await updateDoc(bannerRef, {
       commentsCount: increment(1)
     });
-    
+
     return docRef.id;
   } catch (error) {
     console.error("Error adding comment:", error);
@@ -222,14 +278,14 @@ export async function addComment(bannerId, commentData) {
  * Returns a real-time listener for comments on a specific banner.
  */
 export function subscribeToComments(bannerId, callback) {
-  if (!bannerId) return () => {};
-  
+  if (!bannerId) return () => { };
+
   const q = query(
     collection(db, 'comments'),
     where('bannerId', '==', bannerId),
     orderBy('createdAt', 'desc')
   );
-  
+
   return onSnapshot(q, (snapshot) => {
     const comments = snapshot.docs.map(doc => ({
       id: doc.id,
@@ -244,7 +300,7 @@ export function subscribeToComments(bannerId, callback) {
  */
 export async function deleteComment(commentId, bannerId) {
   if (!commentId || !bannerId) return;
-  
+
   const commentRef = doc(db, 'comments', commentId);
   const bannerRef = doc(db, 'banners', bannerId);
 

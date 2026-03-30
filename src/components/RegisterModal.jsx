@@ -1,6 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
-import { X, User, Building, Users, GraduationCap, Globe, Phone, Calendar, ArrowRight, ArrowLeft, CheckCircle } from 'lucide-react';
+import { X, User, Building, Users, GraduationCap, Globe, Phone, Calendar, ArrowRight, ArrowLeft, CheckCircle, QrCode, Mail, Copy } from 'lucide-react';
 import ReCAPTCHA from "react-google-recaptcha";
+import { QRCodeCanvas } from 'qrcode.react';
+import emailjs from '@emailjs/browser';
+import { registerParticipant } from '../firebase/firestore';
 
 const COUNTRIES = [
   "Afghanistan", "Albania", "Algeria", "Andorra", "Angola", "Antigua and Barbuda", "Argentina", "Armenia", "Australia", "Austria", "Azerbaijan",
@@ -58,6 +61,8 @@ export default function RegisterModal({ isOpen, onClose, event }) {
   const [regType, setRegType] = useState(null); // 'individual' or 'school'
   const [captchaValue, setCaptchaValue] = useState(null);
   const [error, setError] = useState(null);
+  const [registrationCode, setRegistrationCode] = useState(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [user] = useState(JSON.parse(localStorage.getItem('user')) || { name: 'Guest User', email: '' });
 
@@ -143,14 +148,62 @@ export default function RegisterModal({ isOpen, onClose, event }) {
     setStep(3);
   };
 
-  const handleRegister = (e) => {
+  const handleRegister = async (e) => {
     e.preventDefault();
     if (!captchaValue) {
       setError("Please verify that you are not a robot.");
       return;
     }
-    console.log('Registration data:', { type: regType, ...formData });
-    alert("Registration data collected! (Backend logic pending)");
+    
+    setIsSubmitting(true);
+    setError(null);
+    
+    // Safety check for email
+    if (!formData.email) {
+      setError("Email address is missing. Please go back to step 1 and enter your email.");
+      setIsSubmitting(false);
+      return;
+    }
+    
+    try {
+      console.log('Starting registration for:', formData.email);
+      const { registrationCode: code } = await registerParticipant(event.id, regType, formData);
+      setRegistrationCode(code);
+      console.log('Registration successful, code generated:', code);
+      
+      // EmailJS trigger
+      const templateParams = {
+        name: formData.fullName || formData.schoolName, // Matches {{name}}
+        user_name: formData.fullName || formData.schoolName,
+        to_email: formData.email,
+        email: formData.email, // Fallback for templates using {{email}}
+        event_title: event.title,
+        event_date: event.date || "TBD",
+        event_time: event.eventTime || "TBD",
+        event_location: event.location || "TBD",
+        venue_name: event.location || "TBD", // Matches {{venue_name}}
+        registration_code: code,
+        qr_code_url: `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${code}`,
+      };
+      
+      console.log('Sending EmailJS with params:', templateParams);
+      
+      const response = await emailjs.send(
+        import.meta.env.VITE_EMAIL_SERVICE_ID || import.meta.env.VITE_EMAILJS_SERVICE_ID,
+        import.meta.env.VITE_EMAIL_TEMPLATE_ID || import.meta.env.VITE_EMAILJS_TEMPLATE_ID,
+        templateParams,
+        import.meta.env.VITE_EMAIL_PUBLIC_KEY || import.meta.env.VITE_EMAILJS_PUBLIC_KEY
+      );
+      
+      console.log('EmailJS response:', response);
+      
+      setStep(4); // Success step
+    } catch (err) {
+      console.error("Registration error:", err);
+      setError("Registration failed. Please try again later.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const onCaptchaChange = (value) => {
@@ -360,8 +413,10 @@ export default function RegisterModal({ isOpen, onClose, event }) {
       </div>
 
       <div className="form-actions-row">
-        <button type="button" className="btn-cancel-modal" onClick={onClose}>Cancel</button>
-        <button type="submit" className="refined-submit-btn">Register</button>
+        <button type="button" className="btn-cancel-modal" onClick={onClose} disabled={isSubmitting}>Cancel</button>
+        <button type="submit" className="refined-submit-btn" disabled={isSubmitting}>
+          {isSubmitting ? "Registering..." : "Register"}
+        </button>
       </div>
     </form>
   );
@@ -493,10 +548,45 @@ export default function RegisterModal({ isOpen, onClose, event }) {
       </div>
 
       <div className="form-actions-row">
-        <button type="button" className="btn-cancel-modal" onClick={onClose}>Cancel</button>
-        <button type="submit" className="refined-submit-btn">Register</button>
+        <button type="button" className="btn-cancel-modal" onClick={onClose} disabled={isSubmitting}>Cancel</button>
+        <button type="submit" className="refined-submit-btn" disabled={isSubmitting}>
+          {isSubmitting ? "Registering..." : "Register"}
+        </button>
       </div>
     </form>
+  );
+
+  const renderSuccessStep = () => (
+    <div className="registration-success-screen">
+      <div className="success-icon-badge">
+        <CheckCircle size={48} color="var(--color-primary)" />
+      </div>
+      <h3 className="success-title">Registration Successful!</h3>
+      <p className="success-message">
+        Thank you for registering for <strong>{event?.title}</strong>. 
+        A confirmation email with your QR code has been sent to <strong>{formData.email}</strong>.
+      </p>
+      
+      <div className="qr-code-display-card">
+        <p className="qr-label">Your Registration Code</p>
+        <div className="code-badge-large">{registrationCode}</div>
+        
+        <div className="qr-canvas-wrapper">
+          <QRCodeCanvas 
+            value={registrationCode || ""} 
+            size={200}
+            level={"H"}
+            includeMargin={true}
+          />
+        </div>
+        
+        <p className="qr-hint">Please present this QR code at the event entrance for verification.</p>
+      </div>
+      
+      <button className="refined-submit-btn" onClick={onClose} style={{ marginTop: '24px' }}>
+        Done
+      </button>
+    </div>
   );
 
   return (
@@ -511,6 +601,7 @@ export default function RegisterModal({ isOpen, onClose, event }) {
             <div className={`step-dot ${step >= 1 ? 'active' : ''}`} />
             <div className={`step-dot ${step >= 2 ? 'active' : ''}`} />
             <div className={`step-dot ${step >= 3 ? 'active' : ''}`} />
+            <div className={`step-dot ${step >= 4 ? 'active' : ''}`} />
           </div>
 
           <h2 className="event-title-context">Register for Event</h2>
@@ -521,6 +612,7 @@ export default function RegisterModal({ isOpen, onClose, event }) {
           {step === 1 && renderStep1()}
           {step === 2 && renderStep2()}
           {step === 3 && (regType === 'individual' ? renderIndividualForm() : renderSchoolForm())}
+          {step === 4 && renderSuccessStep()}
         </div>
       </div>
     </div>

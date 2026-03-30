@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowUpRight, Calendar, MapPin, ChevronLeft, ChevronRight, GraduationCap, Globe, Users, Presentation, CalendarCheck, Megaphone, Play, Heart, MessageCircle } from 'lucide-react';
+import { ArrowUpRight, Calendar, MapPin, Clock, ChevronLeft, ChevronRight, GraduationCap, Globe, Users, Presentation, CalendarCheck, Megaphone, Play, Heart, MessageCircle } from 'lucide-react';
 import { getBanners, getAboutText } from '../firebase/firestore';
 import PlaceholderImage from '../components/PlaceholderImage';
 
@@ -517,6 +517,18 @@ export default function Home() {
                       </div>
                       <span>{banner.location}</span>
                     </div>
+                    {banner.eventTime && (
+                      <div className="app-event-info-item">
+                        <div className="icon-circle">
+                          <Clock 
+                            size={14} 
+                            className="info-icon"
+                            style={{ color: 'white' }}
+                          />
+                        </div>
+                        <span>{banner.eventTime}</span>
+                      </div>
+                    )}
                   </div>
 
                   {/* Social Stats */}

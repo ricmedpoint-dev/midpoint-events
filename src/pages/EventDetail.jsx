@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { ChevronLeft, Calendar, MapPin, User, MessageCircle, Heart, Send, Trash } from 'lucide-react';
+import { ChevronLeft, Calendar, MapPin, Clock, User, MessageCircle, Heart, Send, Trash } from 'lucide-react';
 import { getEventBySlug, toggleLike, checkIfLiked, addComment, subscribeToComments, deleteComment } from '../firebase/firestore';
 import { useAuth } from '../context/AuthContext';
 import PlaceholderImage from '../components/PlaceholderImage';
@@ -245,6 +245,18 @@ export default function EventDetail() {
             </div>
             <span>{event.location}</span>
           </div>
+          {event.eventTime && (
+            <div className="info-item">
+              <div className="icon-circle">
+                <Clock 
+                  size={18} 
+                  className="info-icon"
+                  style={{ color: event.eventColor || '#999' }}
+                />
+              </div>
+              <span>{event.eventTime}</span>
+            </div>
+          )}
         </div>
 
         <div className="detail-description">
