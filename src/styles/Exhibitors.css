@@ -17,6 +17,16 @@
   border-bottom: 2px solid #f0f0f0;
   text-transform: uppercase;
   letter-spacing: 0.5px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.group-count {
+  font-size: 0.9rem;
+  font-weight: 300;
+  opacity: 0.3;
+  text-transform: none;
 }
 
 /* Perfect Grid Layout */

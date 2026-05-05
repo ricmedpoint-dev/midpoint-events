@@ -399,7 +399,10 @@ export default function EventDetail() {
           {groupedExhibitors.length > 0 ? (
             groupedExhibitors.map((group, gIdx) => (
               <div key={gIdx} className={`exhibitors-group ${getTierClass(group.type)}`}>
-                <h3 className="group-header">{getGroupTitle(group.type, group.list.length)}</h3>
+                <h3 className="group-header">
+                  {getGroupTitle(group.type, group.list.length)}
+                  <span className="group-count">({group.list.length})</span>
+                </h3>
                 <div className="exhibitors-grid">
                   {group.list.map((ex) => (
                     <div 
