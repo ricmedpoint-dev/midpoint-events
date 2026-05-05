@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, Upload, Globe, MapPin, Save, Trash2 } from 'lucide-react';
+import { X, Upload, Globe, MapPin, Save, Trash2, Video } from 'lucide-react';
 import { addExhibitor, updateExhibitor, deleteExhibitor } from '../firebase/firestore';
 
 export const SPONSOR_TYPES = [
@@ -22,6 +22,7 @@ export default function ExhibitorAdminModal({ isOpen, onClose, eventId, exhibito
     image: '',
     country: '',
     website: '',
+    videoUrl: '',
     description: ''
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -36,21 +37,23 @@ export default function ExhibitorAdminModal({ isOpen, onClose, eventId, exhibito
         image: exhibitor.image || '',
         country: exhibitor.country || '',
         website: exhibitor.website || '',
+        videoUrl: exhibitor.videoUrl || '',
         description: exhibitor.description || ''
       });
     } else {
       setFormData({
         name: '',
-        sponsorType: 'Participations',
+        sponsorType: sponsorTiers?.[0]?.label || 'Participations',
         otherSponsorType: '',
         logo: '',
         image: '',
         country: '',
         website: '',
+        videoUrl: '',
         description: ''
       });
     }
-  }, [exhibitor, isOpen]);
+  }, [exhibitor, isOpen, sponsorTiers]);
 
   if (!isOpen) return null;
 
@@ -158,6 +161,20 @@ export default function ExhibitorAdminModal({ isOpen, onClose, eventId, exhibito
     });
   };
 
+  const transformVideoUrl = (url) => {
+    if (!url) return '';
+    // YouTube
+    const ytMatch = url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/);
+    if (ytMatch) return `https://www.youtube.com/embed/${ytMatch[1]}`;
+    
+    // Google Drive
+    const gdMatch = url.match(/drive\.google\.com\/file\/d\/([^\/\?\&]+)/) || url.match(/id=([^\/\?\&]+)/);
+    if (gdMatch && (url.includes('drive.google.com') || url.includes('docs.google.com'))) {
+      return `https://drive.google.com/file/d/${gdMatch[1]}/preview`;
+    }
+    return url;
+  };
+
   const handleFileUpload = async (e, field) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -184,7 +201,11 @@ export default function ExhibitorAdminModal({ isOpen, onClose, eventId, exhibito
     if (!formData.logo) return alert("Logo is required");
     setIsSubmitting(true);
     try {
-      const data = { ...formData, eventId };
+      const data = { 
+        ...formData, 
+        eventId,
+        videoUrl: transformVideoUrl(formData.videoUrl)
+      };
       if (exhibitor?.id) {
         await updateExhibitor(exhibitor.id, data);
       } else {
@@ -314,6 +335,23 @@ export default function ExhibitorAdminModal({ isOpen, onClose, eventId, exhibito
                 />
               </div>
             </div>
+          </div>
+          
+          <div className="form-group">
+            <label>Promotional Video URL (YouTube or Google Drive Preview)</label>
+            <div style={{ position: 'relative' }}>
+              <Video size={16} style={{ position: 'absolute', left: '10px', top: '14px', color: '#888' }} />
+              <input 
+                style={{ paddingLeft: '35px' }}
+                type="url"
+                value={formData.videoUrl} 
+                onChange={e => setFormData({...formData, videoUrl: e.target.value})} 
+                placeholder="Paste YouTube or Google Drive share link..."
+              />
+            </div>
+            <small style={{ display: 'block', marginTop: '5px', color: '#666', fontSize: '0.75rem' }}>
+              For Google Drive, ensure the file is shared as "Anyone with the link".
+            </small>
           </div>
 
           <div className="form-group">

@@ -183,6 +183,17 @@ export default function EventDetail() {
     }
   };
 
+  const getContrastColor = (hex) => {
+    if (!hex) return '#333';
+    const color = hex.startsWith('#') ? hex.slice(1) : hex;
+    if (color.length !== 6) return '#333';
+    const r = parseInt(color.slice(0, 2), 16);
+    const g = parseInt(color.slice(2, 4), 16);
+    const b = parseInt(color.slice(4, 6), 16);
+    const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+    return brightness > 155 ? '#333' : '#fff';
+  };
+
   const getTierClass = (type) => {
     const tiers = event?.sponsorTiers || DEFAULT_TIERS;
     const tier = tiers.find(t => t.label === type);
@@ -396,7 +407,8 @@ export default function EventDetail() {
                       className="exhibitor-card"
                       style={{ 
                         '--event-color': event.eventColor || '#E31E24',
-                        '--tier-color': group.color
+                        '--tier-color': group.color,
+                        '--tier-text-color': getContrastColor(group.color)
                       }}
                       onClick={() => {
                         if (isAdmin && window.confirm("Edit this exhibitor? (Cancel to just view)")) {

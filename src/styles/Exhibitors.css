@@ -102,17 +102,12 @@
 /* Tier-Specific Colors for Name Tags (Non-Hover State) */
 .exhibitor-name-tag {
   background: var(--tier-color, #f0f0f0);
-  color: #333;
+  color: var(--tier-text-color, #333);
   border: 1px solid rgba(0,0,0,0.1);
   transition: all 0.3s ease;
 }
 
-/* Specific text color overrides for dark backgrounds */
-.tier-main .exhibitor-name-tag,
-.tier-strategic .exhibitor-name-tag,
-.tier-bronze .exhibitor-name-tag {
-  color: white;
-}
+/* Specific text color overrides removed in favor of dynamic --tier-text-color */
 
 /* Keeping Hover Dynamic Event Color */
 .exhibitor-card:hover .exhibitor-name-tag {
