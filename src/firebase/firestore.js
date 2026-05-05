@@ -97,6 +97,39 @@ export async function getExhibitors() {
   return snap.docs.map(d => ({ id: d.id, ...d.data() }));
 }
 
+export async function getExhibitorsByEvent(eventId) {
+  if (!eventId) return [];
+  const q = query(
+    collection(db, 'exhibitors'),
+    where('eventId', '==', eventId),
+    orderBy('createdAt', 'asc')
+  );
+  const snap = await getDocs(q);
+  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+}
+
+export async function addExhibitor(data) {
+  const colRef = collection(db, 'exhibitors');
+  const docRef = await addDoc(colRef, {
+    ...data,
+    createdAt: new Date().toISOString(),
+  });
+  return docRef.id;
+}
+
+export async function updateExhibitor(id, data) {
+  const docRef = doc(db, 'exhibitors', id);
+  await updateDoc(docRef, {
+    ...data,
+    updatedAt: new Date().toISOString(),
+  });
+}
+
+export async function deleteExhibitor(id) {
+  const docRef = doc(db, 'exhibitors', id);
+  await deleteDoc(docRef);
+}
+
 // ── About Text ──
 export async function getAboutText() {
   const ref = doc(db, 'content', 'about');

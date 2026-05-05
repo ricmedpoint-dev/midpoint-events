@@ -1,11 +1,22 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { ChevronLeft, Calendar, MapPin, Clock, User, MessageCircle, Heart, Send, Trash } from 'lucide-react';
-import { getEventBySlug, toggleLike, checkIfLiked, addComment, subscribeToComments, deleteComment } from '../firebase/firestore';
 import { useAuth } from '../context/AuthContext';
 import PlaceholderImage from '../components/PlaceholderImage';
 import RegisterModal from '../components/RegisterModal';
 import EnquiryModal from '../components/EnquiryModal';
+import ExhibitorAdminModal, { SPONSOR_TYPES } from '../components/ExhibitorAdminModal';
+import ExhibitorDetailModal from '../components/ExhibitorDetailModal';
+import '../styles/Exhibitors.css';
+import { 
+  getEventBySlug, 
+  toggleLike, 
+  checkIfLiked, 
+  addComment, 
+  subscribeToComments, 
+  deleteComment,
+  getExhibitorsByEvent 
+} from '../firebase/firestore';
 
 // Fallback data for individual event if firestore fails
 const fallbackEvents = [
@@ -62,6 +73,14 @@ export default function EventDetail() {
   const [loading, setLoading] = useState(!location.state?.event);
   const [showRegisterModal, setShowRegisterModal] = useState(false);
   const [showEnquiryModal, setShowEnquiryModal] = useState(false);
+  const [showExhibitorAdminModal, setShowExhibitorAdminModal] = useState(false);
+  const [showExhibitorDetailModal, setShowExhibitorDetailModal] = useState(false);
+  const [selectedExhibitor, setSelectedExhibitor] = useState(null);
+  const { isAdmin } = useAuth();
+
+  // Exhibitors State
+  const [exhibitors, setExhibitors] = useState([]);
+  const [exhibitorsLoading, setExhibitorsLoading] = useState(true);
 
   // Social State
   const [liked, setLiked] = useState(false);
@@ -113,6 +132,47 @@ export default function EventDetail() {
     fetchEvent();
     return () => { cancelled = true; };
   }, [slug]);
+
+  const fetchExhibitors = async () => {
+    if (!event?.id) return;
+    try {
+      const data = await getExhibitorsByEvent(event.id);
+      setExhibitors(data);
+    } catch (err) {
+      console.error("Failed to fetch exhibitors", err);
+    } finally {
+      setExhibitorsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchExhibitors();
+  }, [event?.id]);
+
+  const groupedExhibitors = SPONSOR_TYPES.reduce((acc, type) => {
+    const list = exhibitors.filter(ex => ex.sponsorType === type);
+    if (list.length > 0) acc.push({ type, list });
+    return acc;
+  }, []);
+
+  const getGroupTitle = (type, count) => {
+    if (type.startsWith('Others')) return 'Others';
+    
+    // Clean the "/s" from the type string
+    let base = type.replace(/\/s$/, '').split(' (')[0];
+    
+    if (count > 1) {
+      // Plural
+      if (base.endsWith('Partner')) return base + 's';
+      if (base.endsWith('Sponsor')) return base + 's';
+      if (base === 'Participation') return 'Participations';
+      return base;
+    } else {
+      // Singular
+      if (base === 'Participations') return 'Participation';
+      return base;
+    }
+  };
 
   // Social Effects
   useEffect(() => {
@@ -272,6 +332,63 @@ export default function EventDetail() {
           </div>
         </div>
 
+        {/* ── Exhibitors Section ── */}
+        <div className="exhibitors-section">
+          {isAdmin && (
+            <div className="admin-manage-exhibitors">
+              <div className="admin-manage-title">
+                <User size={18} />
+                <span>Admin: Manage Exhibitors</span>
+              </div>
+              <div className="admin-action-btns">
+                <button 
+                  className="btn-admin-add"
+                  onClick={() => {
+                    setSelectedExhibitor(null);
+                    setShowExhibitorAdminModal(true);
+                  }}
+                >
+                  <Send size={14} />
+                  <span>Add Exhibitor</span>
+                </button>
+              </div>
+            </div>
+          )}
+
+          {groupedExhibitors.length > 0 ? (
+            groupedExhibitors.map((group, gIdx) => (
+              <div key={gIdx} className="exhibitors-group">
+                <h3 className="group-header">{getGroupTitle(group.type, group.list.length)}</h3>
+                <div className="exhibitors-grid">
+                  {group.list.map((ex) => (
+                    <div 
+                      key={ex.id} 
+                      className="exhibitor-card"
+                      style={{ '--event-color': event.eventColor || '#E31E24' }}
+                      onClick={() => {
+                        if (isAdmin && window.confirm("Edit this exhibitor? (Cancel to just view)")) {
+                          setSelectedExhibitor(ex);
+                          setShowExhibitorAdminModal(true);
+                        } else {
+                          setSelectedExhibitor(ex);
+                          setShowExhibitorDetailModal(true);
+                        }
+                      }}
+                    >
+                      <div className="exhibitor-logo-container">
+                        <img src={ex.logo} alt={ex.name} className="exhibitor-logo" />
+                      </div>
+                      <div className="exhibitor-name-tag">{ex.name}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))
+          ) : (
+            !exhibitorsLoading && <p className="no-comments" style={{ textAlign: 'center', padding: '20px' }}>Exhibitors list will be updated soon.</p>
+          )}
+        </div>
+
         {/* Social Section: Comments */}
         <div className="detail-social-section">
           <div className="social-header">
@@ -369,6 +486,19 @@ export default function EventDetail() {
         isOpen={showEnquiryModal} 
         onClose={() => setShowEnquiryModal(false)} 
         event={event}
+      />
+      <ExhibitorAdminModal 
+        isOpen={showExhibitorAdminModal}
+        onClose={() => setShowExhibitorAdminModal(false)}
+        eventId={event?.id}
+        exhibitor={selectedExhibitor}
+        onSaved={fetchExhibitors}
+      />
+      <ExhibitorDetailModal 
+        isOpen={showExhibitorDetailModal}
+        onClose={() => setShowExhibitorDetailModal(false)}
+        exhibitor={selectedExhibitor}
+        eventColor={event?.eventColor}
       />
     </div>
   );

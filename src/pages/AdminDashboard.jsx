@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { Shield, ArrowLeft, Plus, Trash2, Link as LinkIcon, Upload, X, Save, Image as ImageIcon, Video, Edit2, Home } from 'lucide-react';
+import { Shield, ArrowLeft, Plus, Trash2, Link as LinkIcon, Upload, X, Save, Image as ImageIcon, Video, Edit2, Home, User } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { getBanners, addBanner, deleteBanner, updateBanner } from '../firebase/firestore';
 import { useAuth } from '../context/AuthContext';
@@ -505,6 +505,14 @@ export default function AdminDashboard() {
                       <button className="banner-edit-btn" onClick={() => handleEdit(banner)}>
                         <Edit2 size={16} />
                         <span>Edit</span>
+                      </button>
+                      <button 
+                        className="banner-edit-btn" 
+                        style={{ backgroundColor: '#f0f9ff', color: '#0369a1', borderColor: '#bae6fd' }}
+                        onClick={() => navigate(`/event/${banner.slug || banner.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '')}`)}
+                      >
+                        <User size={16} />
+                        <span>Exhibitors</span>
                       </button>
                       <button className="banner-delete-btn" onClick={() => setDeleteConfirmId(banner.id)}>
                         <Trash2 size={16} />

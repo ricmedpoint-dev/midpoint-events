@@ -12,6 +12,10 @@ service cloud.firestore {
     match /content/{document=**} {
       allow read: if true;
     }
+    match /exhibitors/{document=**} {
+      allow read: if true;
+      allow write: if true;
+    }
     
     // allow authenticated users to read/write their own profile
     match /users/{userId} {
