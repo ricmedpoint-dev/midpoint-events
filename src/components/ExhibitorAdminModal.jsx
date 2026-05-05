@@ -5,6 +5,7 @@ import { addExhibitor, updateExhibitor, deleteExhibitor } from '../firebase/fire
 export const SPONSOR_TYPES = [
   'Main Sponsor',
   'Strategic Partner/s',
+  'Platinum Sponsor/s',
   'Gold Sponsor/s',
   'Silver Sponsor/s',
   'Bronze Sponsor/s',
@@ -12,10 +13,10 @@ export const SPONSOR_TYPES = [
   'Others (Please specify)'
 ];
 
-export default function ExhibitorAdminModal({ isOpen, onClose, eventId, exhibitor = null, onSaved }) {
+export default function ExhibitorAdminModal({ isOpen, onClose, eventId, exhibitor = null, onSaved, sponsorTiers = null }) {
   const [formData, setFormData] = useState({
     name: '',
-    sponsorType: 'Participations',
+    sponsorType: sponsorTiers?.[0]?.label || 'Participations',
     otherSponsorType: '',
     logo: '',
     image: '',
@@ -238,7 +239,9 @@ export default function ExhibitorAdminModal({ isOpen, onClose, eventId, exhibito
               value={formData.sponsorType} 
               onChange={e => setFormData({...formData, sponsorType: e.target.value})}
             >
-              {SPONSOR_TYPES.map(type => <option key={type} value={type}>{type}</option>)}
+              {(sponsorTiers || SPONSOR_TYPES.map(t => ({ label: t }))).map(tier => (
+                <option key={tier.id || tier.label} value={tier.label}>{tier.label}</option>
+              ))}
             </select>
           </div>
 

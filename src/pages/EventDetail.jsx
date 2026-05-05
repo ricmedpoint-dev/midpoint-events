@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { ChevronLeft, Calendar, MapPin, Clock, User, MessageCircle, Heart, Send, Trash } from 'lucide-react';
+import { ChevronLeft, Calendar, MapPin, Clock, User, MessageCircle, Heart, Send, Trash, Settings, Globe, ExternalLink } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import PlaceholderImage from '../components/PlaceholderImage';
 import RegisterModal from '../components/RegisterModal';
 import EnquiryModal from '../components/EnquiryModal';
 import ExhibitorAdminModal, { SPONSOR_TYPES } from '../components/ExhibitorAdminModal';
 import ExhibitorDetailModal from '../components/ExhibitorDetailModal';
+import TierSettingsModal from '../components/TierSettingsModal';
 import '../styles/Exhibitors.css';
 import { 
   getEventBySlug, 
@@ -17,6 +18,16 @@ import {
   deleteComment,
   getExhibitorsByEvent 
 } from '../firebase/firestore';
+
+const DEFAULT_TIERS = [
+  { id: 'main', label: 'Main Sponsor', color: '#1d7dcc' },
+  { id: 'strategic', label: 'Strategic Partner/s', color: '#1d7dcc' },
+  { id: 'platinum', label: 'Platinum Sponsor/s', color: '#E5E4E2' },
+  { id: 'gold', label: 'Gold Sponsor/s', color: '#FFD700' },
+  { id: 'silver', label: 'Silver Sponsor/s', color: '#C0C0C0' },
+  { id: 'bronze', label: 'Bronze Sponsor/s', color: '#CD7F32' },
+  { id: 'others', label: 'Others / Participations', color: '#f0f0f0' }
+];
 
 // Fallback data for individual event if firestore fails
 const fallbackEvents = [
@@ -75,6 +86,7 @@ export default function EventDetail() {
   const [showEnquiryModal, setShowEnquiryModal] = useState(false);
   const [showExhibitorAdminModal, setShowExhibitorAdminModal] = useState(false);
   const [showExhibitorDetailModal, setShowExhibitorDetailModal] = useState(false);
+  const [showTierSettingsModal, setShowTierSettingsModal] = useState(false);
   const [selectedExhibitor, setSelectedExhibitor] = useState(null);
   const { isAdmin } = useAuth();
 
@@ -100,37 +112,34 @@ export default function EventDetail() {
     return id;
   });
 
+
+  const loadEventData = async (isInitial = false) => {
+    if (isInitial) setLoading(true);
+    try {
+      const data = await getEventBySlug(slug);
+      if (data) {
+        setEvent(data);
+        setLikesCount(data.likesCount || 0);
+      } else {
+        const fallback = fallbackEvents.find((e) => e.slug === slug);
+        if (fallback) setEvent(fallback);
+      }
+    } catch (err) {
+      console.warn('Using fallback data for detail:', err.message);
+      const fallback = fallbackEvents.find((e) => e.slug === slug);
+      if (fallback) setEvent(fallback);
+    } finally {
+      if (isInitial) setLoading(true); // Should be false, but let's match logic
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     if (event && event.slug === slug) {
       setLoading(false);
       return;
     }
-
-    let cancelled = false;
-    setLoading(true);
-
-    async function fetchEvent() {
-      try {
-        const data = await getEventBySlug(slug);
-        if (cancelled) return;
-        if (data) {
-          setEvent(data);
-          setLikesCount(data.likesCount || 0);
-        } else {
-          const fallback = fallbackEvents.find((e) => e.slug === slug);
-          if (fallback) setEvent(fallback);
-        }
-      } catch (err) {
-        if (cancelled) return;
-        console.warn('Using fallback data for detail:', err.message);
-        const fallback = fallbackEvents.find((e) => e.slug === slug);
-        if (fallback) setEvent(fallback);
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    }
-    fetchEvent();
-    return () => { cancelled = true; };
+    loadEventData(true);
   }, [slug]);
 
   const fetchExhibitors = async () => {
@@ -149,9 +158,9 @@ export default function EventDetail() {
     fetchExhibitors();
   }, [event?.id]);
 
-  const groupedExhibitors = SPONSOR_TYPES.reduce((acc, type) => {
-    const list = exhibitors.filter(ex => ex.sponsorType === type);
-    if (list.length > 0) acc.push({ type, list });
+  const groupedExhibitors = (event?.sponsorTiers || DEFAULT_TIERS).reduce((acc, tier) => {
+    const list = exhibitors.filter(ex => ex.sponsorType === tier.label);
+    if (list.length > 0) acc.push({ type: tier.label, list, tierId: tier.id, color: tier.color });
     return acc;
   }, []);
 
@@ -172,6 +181,12 @@ export default function EventDetail() {
       if (base === 'Participations') return 'Participation';
       return base;
     }
+  };
+
+  const getTierClass = (type) => {
+    const tiers = event?.sponsorTiers || DEFAULT_TIERS;
+    const tier = tiers.find(t => t.label === type);
+    return tier ? `tier-${tier.id}` : 'tier-base';
   };
 
   // Social Effects
@@ -333,7 +348,13 @@ export default function EventDetail() {
         </div>
 
         {/* ── Exhibitors Section ── */}
-        <div className="exhibitors-section">
+        <div 
+          className="exhibitors-section"
+          style={(event?.sponsorTiers || DEFAULT_TIERS).reduce((acc, tier) => {
+            acc[`--tier-${tier.id}-color`] = tier.color;
+            return acc;
+          }, {})}
+        >
           {isAdmin && (
             <div className="admin-manage-exhibitors">
               <div className="admin-manage-title">
@@ -351,20 +372,32 @@ export default function EventDetail() {
                   <Send size={14} />
                   <span>Add Exhibitor</span>
                 </button>
+
+                <button 
+                  className="btn-admin-add"
+                  onClick={() => setShowTierSettingsModal(true)}
+                  style={{ background: '#f8fafc', color: '#64748b', border: '1px solid #e2e8f0' }}
+                >
+                  <Settings size={14} />
+                  <span>Tier Settings</span>
+                </button>
               </div>
             </div>
           )}
 
           {groupedExhibitors.length > 0 ? (
             groupedExhibitors.map((group, gIdx) => (
-              <div key={gIdx} className="exhibitors-group">
+              <div key={gIdx} className={`exhibitors-group ${getTierClass(group.type)}`}>
                 <h3 className="group-header">{getGroupTitle(group.type, group.list.length)}</h3>
                 <div className="exhibitors-grid">
                   {group.list.map((ex) => (
                     <div 
                       key={ex.id} 
                       className="exhibitor-card"
-                      style={{ '--event-color': event.eventColor || '#E31E24' }}
+                      style={{ 
+                        '--event-color': event.eventColor || '#E31E24',
+                        '--tier-color': group.color
+                      }}
                       onClick={() => {
                         if (isAdmin && window.confirm("Edit this exhibitor? (Cancel to just view)")) {
                           setSelectedExhibitor(ex);
@@ -492,13 +525,23 @@ export default function EventDetail() {
         onClose={() => setShowExhibitorAdminModal(false)}
         eventId={event?.id}
         exhibitor={selectedExhibitor}
-        onSaved={fetchExhibitors}
+        onSaved={() => {
+          fetchExhibitors();
+        }}
+        sponsorTiers={event?.sponsorTiers}
       />
       <ExhibitorDetailModal 
         isOpen={showExhibitorDetailModal}
         onClose={() => setShowExhibitorDetailModal(false)}
         exhibitor={selectedExhibitor}
         eventColor={event?.eventColor}
+      />
+
+      <TierSettingsModal 
+        isOpen={showTierSettingsModal}
+        onClose={() => setShowTierSettingsModal(false)}
+        event={event}
+        onSaved={loadEventData}
       />
     </div>
   );

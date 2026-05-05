@@ -64,14 +64,11 @@
   max-width: 100%;
   max-height: 100%;
   object-fit: contain;
-  filter: grayscale(100%);
-  opacity: 0.8;
   transition: all 0.3s ease;
 }
 
 .exhibitor-card:hover .exhibitor-logo {
-  filter: grayscale(0%);
-  opacity: 1;
+  transform: scale(1.05);
 }
 
 .exhibitor-name-tag {
@@ -93,6 +90,35 @@
 .exhibitor-card:hover .exhibitor-name-tag {
   background: var(--event-color, var(--color-primary));
   color: white;
+}
+
+/* Tier-Based Visual Hierarchy */
+.exhibitors-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 20px;
+}
+
+/* Tier-Specific Colors for Name Tags (Non-Hover State) */
+.exhibitor-name-tag {
+  background: var(--tier-color, #f0f0f0);
+  color: #333;
+  border: 1px solid rgba(0,0,0,0.1);
+  transition: all 0.3s ease;
+}
+
+/* Specific text color overrides for dark backgrounds */
+.tier-main .exhibitor-name-tag,
+.tier-strategic .exhibitor-name-tag,
+.tier-bronze .exhibitor-name-tag {
+  color: white;
+}
+
+/* Keeping Hover Dynamic Event Color */
+.exhibitor-card:hover .exhibitor-name-tag {
+  background: var(--event-color, var(--color-primary)) !important;
+  color: white !important;
+  border-color: transparent !important;
 }
 
 /* Admin Controls on Public Page */
