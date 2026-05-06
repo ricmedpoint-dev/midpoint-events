@@ -614,6 +614,7 @@ export default function EventDetail() {
         isOpen={showFloorPlanViewer}
         onClose={() => setShowFloorPlanViewer(false)}
         eventId={event?.id}
+        sponsorTiers={event?.sponsorTiers || DEFAULT_TIERS}
       />
     </div>
   );

@@ -279,6 +279,17 @@
   background: #fff4f4;
 }
 
+.fp-booth-item.is-dragging-list {
+  opacity: 0.4;
+  border: 1px dashed #adb5bd;
+}
+
+.fp-booth-item.drag-over {
+  border-top: 3px solid var(--color-primary, #E31E24);
+  margin-top: -3px;
+  background: #fff4f4;
+}
+
 .fp-booth-color-dot {
   width: 24px;
   height: 24px;
@@ -819,8 +830,33 @@
 }
 
 /* ── Viewer Mode Tweaks ── */
+.fp-container.viewer-mode .fp-body {
+  flex-direction: column;
+  overflow-y: auto;
+}
+
 .fp-container.viewer-mode .fp-grid-area {
   padding: 20px;
+  flex: none;
+  height: 75vh;
+  min-height: 500px;
+}
+
+/* ── Sticky Zoom Controls for Viewer ── */
+.fp-zoom-controls-viewer {
+  position: absolute;
+  bottom: 30px;
+  right: 30px;
+  z-index: 1000;
+  background: white;
+  padding: 10px;
+  border-radius: 14px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: center;
+  border: 1px solid #eef0f2;
 }
 
 .fp-container.viewer-mode .fp-booth {
@@ -852,6 +888,138 @@
   white-space: nowrap;
   text-align: center;
   line-height: 1;
+}
+
+/* ── Booth Directory ── */
+.fp-directory {
+  padding: 40px 20px;
+  background: #fff;
+  border-top: 1px solid #eef0f2;
+}
+
+.fp-directory-header {
+  margin-bottom: 30px;
+  text-align: center;
+}
+
+.fp-directory-header h3 {
+  font-size: 1.5rem;
+  color: #1a1a2e;
+  margin-bottom: 8px;
+}
+
+.fp-directory-header p {
+  color: #6c757d;
+  font-size: 0.9rem;
+}
+
+.fp-directory-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.fp-directory-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: #f8f9fa;
+  border-radius: 12px;
+  border: 1px solid #eef0f2;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.fp-directory-card:hover {
+  background: #fff;
+  border-color: var(--color-primary);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+  transform: translateY(-2px);
+}
+
+.fp-directory-card-logo {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  overflow: hidden;
+  flex-shrink: 0;
+  background: #fff;
+  border: 1px solid #e9ecef;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.fp-directory-card-logo img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.fp-directory-logo-fallback {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-weight: 800;
+  font-size: 0.8rem;
+}
+
+.fp-directory-card-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.fp-directory-card-number {
+  font-weight: 700;
+  color: #1a1a2e;
+  font-size: 0.9rem;
+}
+
+.fp-directory-card-divider {
+  color: #dee2e6;
+}
+
+.fp-directory-card-name {
+  color: #495057;
+  font-size: 0.9rem;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── Print Styles for PDF ── */
+@media print {
+  .fp-overlay {
+    position: static;
+    background: #fff;
+    padding: 0;
+  }
+  .fp-container {
+    width: 100%;
+    height: auto;
+    max-height: none;
+    box-shadow: none;
+    margin: 0;
+  }
+  .fp-topbar, .fp-zoom-controls, .fp-close-btn {
+    display: none !important;
+  }
+  .fp-body {
+    overflow: visible;
+  }
+  .fp-grid-area {
+    page-break-after: always;
+    min-height: auto;
+  }
 }
 
 /* ========================================================
@@ -915,5 +1083,23 @@
   .fp-view-btn {
     padding: 12px 24px;
     font-size: 0.9rem;
+  }
+
+  .fp-zoom-controls-viewer {
+    bottom: 16px;
+    right: 16px;
+    padding: 6px;
+    gap: 6px;
+    border-radius: 10px;
+  }
+
+  .fp-zoom-controls button {
+    width: 32px;
+    height: 32px;
+  }
+
+  .fp-zoom-level {
+    font-size: 0.75rem;
+    min-width: 36px;
   }
 }

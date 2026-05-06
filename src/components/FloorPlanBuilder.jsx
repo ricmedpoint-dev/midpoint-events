@@ -451,7 +451,7 @@ export default function FloorPlanBuilder({ isOpen, onClose, eventId, onSaved, ex
         const clampedY = Math.max(0, Math.min(gridHeight - b.heightM, snappedY));
         return { ...b, x: clampedX, y: clampedY };
       }));
-    } else if (isPanning) {
+    } else if (isPanning && touchCount.current <= 1) {
       const dx = e.clientX - panStart.current.x;
       const dy = e.clientY - panStart.current.y;
       setPan({
@@ -508,6 +508,56 @@ export default function FloorPlanBuilder({ isOpen, onClose, eventId, onSaved, ex
     el.addEventListener('wheel', handleWheel, { passive: false });
     return () => el.removeEventListener('wheel', handleWheel);
   }, [isOpen, handleWheel]);
+
+  // Pinch-to-zoom for touch
+  const lastTouchDist = useRef(null);
+  const touchCount = useRef(0);
+  const pinchStartDist = useRef(null);
+  const pinchStartZoom = useRef(null);
+
+  const handleTouchStart = useCallback((e) => {
+    touchCount.current = e.touches.length;
+    if (e.touches.length === 2) {
+      setIsPanning(false);
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      const dist = Math.hypot(dx, dy);
+      pinchStartDist.current = dist;
+      pinchStartZoom.current = zoom;
+    }
+  }, [zoom]);
+
+  const handleTouchMove = useCallback((e) => {
+    if (e.touches.length === 2 && pinchStartDist.current !== null) {
+      e.preventDefault();
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      const dist = Math.hypot(dx, dy);
+      
+      const scale = dist / pinchStartDist.current;
+      const nextZoom = pinchStartZoom.current * scale;
+      setZoom(Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, nextZoom)));
+    }
+  }, []);
+
+  const handleTouchEnd = useCallback((e) => {
+    touchCount.current = e.touches.length;
+    pinchStartDist.current = null;
+    pinchStartZoom.current = null;
+  }, []);
+
+  useEffect(() => {
+    const el = gridAreaRef.current;
+    if (!el || !isOpen) return;
+    el.addEventListener('touchstart', handleTouchStart, { passive: false });
+    el.addEventListener('touchmove', handleTouchMove, { passive: false });
+    el.addEventListener('touchend', handleTouchEnd);
+    return () => {
+      el.removeEventListener('touchstart', handleTouchStart);
+      el.removeEventListener('touchmove', handleTouchMove);
+      el.removeEventListener('touchend', handleTouchEnd);
+    };
+  }, [isOpen, handleTouchStart, handleTouchMove, handleTouchEnd]);
 
   if (!isOpen) return null;
 
@@ -599,11 +649,38 @@ export default function FloorPlanBuilder({ isOpen, onClose, eventId, onSaved, ex
                   </p>
                 )}
 
-                {booths.map(b => (
+                {booths.map((b, index) => (
                   <div
                     key={b.id}
                     className={`fp-booth-item ${selectedBoothId === b.id ? 'active' : ''}`}
                     onClick={() => setSelectedBoothId(b.id)}
+                    draggable
+                    onDragStart={(e) => {
+                      e.dataTransfer.setData('text/plain', index.toString());
+                      e.currentTarget.classList.add('is-dragging-list');
+                    }}
+                    onDragEnd={(e) => {
+                      e.currentTarget.classList.remove('is-dragging-list');
+                    }}
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      e.currentTarget.classList.add('drag-over');
+                    }}
+                    onDragLeave={(e) => {
+                      e.currentTarget.classList.remove('drag-over');
+                    }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      e.currentTarget.classList.remove('drag-over');
+                      const fromIndex = parseInt(e.dataTransfer.getData('text/plain'));
+                      const toIndex = index;
+                      if (fromIndex === toIndex) return;
+                      
+                      const updated = [...booths];
+                      const [moved] = updated.splice(fromIndex, 1);
+                      updated.splice(toIndex, 0, moved);
+                      setBooths(updated);
+                    }}
                   >
                     <div
                       className="fp-booth-color-dot"
@@ -855,12 +932,16 @@ export default function FloorPlanBuilder({ isOpen, onClose, eventId, onSaved, ex
               className="fp-grid-area"
               ref={gridAreaRef}
               onPointerDown={handleGridAreaPointerDown}
+              style={{ touchAction: 'none' }}
             >
               <div
                 className={`fp-grid-wrapper ${dragging ? 'is-dragging' : ''}`}
                 style={{
                   transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
                   padding: `${GATE_PADDING}px`,
+                  width: `${gridPxW + GATE_PADDING * 2}px`,
+                  height: `${gridPxH + GATE_PADDING * 2}px`,
+                  flexShrink: 0
                 }}
               >
                 {/* Gate markers rendered in the padding area */}
@@ -1017,11 +1098,22 @@ export default function FloorPlanBuilder({ isOpen, onClose, eventId, onSaved, ex
               <button className="fp-close-btn" onClick={() => setDetailBooth(null)}>
                 <X size={16} />
               </button>
-              <div
-                className="fp-booth-detail-color"
-                style={{ background: detailBooth.color }}
-              />
-              
+              {detailBooth.sponsorType && (
+                <div 
+                  className="fp-booth-detail-tier" 
+                  style={{ 
+                    color: sponsorTiers.find(t => t.label === detailBooth.sponsorType)?.color || detailBooth.color, 
+                    fontWeight: 800, 
+                    fontSize: '0.85rem', 
+                    marginBottom: '8px', 
+                    textTransform: 'uppercase', 
+                    letterSpacing: '0.5px' 
+                  }}
+                >
+                  {detailBooth.sponsorType}
+                </div>
+              )}
+
               {detailBooth.logo && (
                 <div className="fp-booth-detail-logo">
                   <img src={detailBooth.logo} alt={detailBooth.name} />
@@ -1036,12 +1128,6 @@ export default function FloorPlanBuilder({ isOpen, onClose, eventId, onSaved, ex
                   <div className="fp-booth-detail-meta-item">
                     <strong>Exhibitor:</strong>
                     <span>{detailBooth.name}</span>
-                  </div>
-                )}
-                {detailBooth.sponsorType && (
-                  <div className="fp-booth-detail-meta-item">
-                    <strong>Tier:</strong>
-                    <span>{detailBooth.sponsorType}</span>
                   </div>
                 )}
                 <div className="fp-booth-detail-meta-item">
