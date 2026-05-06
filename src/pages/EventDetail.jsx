@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { ChevronLeft, Calendar, MapPin, Clock, User, MessageCircle, Heart, Send, Trash, Settings, Globe, ExternalLink } from 'lucide-react';
+import { ChevronLeft, Calendar, MapPin, Clock, User, MessageCircle, Heart, Send, Trash, Settings, Globe, ExternalLink, Grid3X3 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import PlaceholderImage from '../components/PlaceholderImage';
 import RegisterModal from '../components/RegisterModal';
@@ -8,6 +8,8 @@ import EnquiryModal from '../components/EnquiryModal';
 import ExhibitorAdminModal, { SPONSOR_TYPES } from '../components/ExhibitorAdminModal';
 import ExhibitorDetailModal from '../components/ExhibitorDetailModal';
 import TierSettingsModal from '../components/TierSettingsModal';
+import FloorPlanBuilder from '../components/FloorPlanBuilder';
+import FloorPlanViewer from '../components/FloorPlanViewer';
 import '../styles/Exhibitors.css';
 import { 
   getEventBySlug, 
@@ -16,7 +18,8 @@ import {
   addComment, 
   subscribeToComments, 
   deleteComment,
-  getExhibitorsByEvent 
+  getExhibitorsByEvent,
+  getFloorPlan 
 } from '../firebase/firestore';
 
 const DEFAULT_TIERS = [
@@ -87,6 +90,9 @@ export default function EventDetail() {
   const [showExhibitorAdminModal, setShowExhibitorAdminModal] = useState(false);
   const [showExhibitorDetailModal, setShowExhibitorDetailModal] = useState(false);
   const [showTierSettingsModal, setShowTierSettingsModal] = useState(false);
+  const [showFloorPlanBuilder, setShowFloorPlanBuilder] = useState(false);
+  const [showFloorPlanViewer, setShowFloorPlanViewer] = useState(false);
+  const [hasFloorPlan, setHasFloorPlan] = useState(false);
   const [selectedExhibitor, setSelectedExhibitor] = useState(null);
   const { isAdmin } = useAuth();
 
@@ -156,6 +162,21 @@ export default function EventDetail() {
 
   useEffect(() => {
     fetchExhibitors();
+  }, [event?.id]);
+
+  // Check if floor plan exists for this event
+  const checkFloorPlan = async () => {
+    if (!event?.id) return;
+    try {
+      const fp = await getFloorPlan(event.id);
+      setHasFloorPlan(!!fp && (fp.booths?.length > 0));
+    } catch (err) {
+      console.error('Failed to check floor plan', err);
+    }
+  };
+
+  useEffect(() => {
+    checkFloorPlan();
   }, [event?.id]);
 
   const groupedExhibitors = (event?.sponsorTiers || DEFAULT_TIERS).reduce((acc, tier) => {
@@ -358,6 +379,19 @@ export default function EventDetail() {
           </div>
         </div>
 
+        {/* Floor Plan View Button (shown to all users when a floor plan exists) */}
+        {hasFloorPlan && (
+          <div className="fp-view-btn-section">
+            <button 
+              className="fp-view-btn"
+              onClick={() => setShowFloorPlanViewer(true)}
+            >
+              <Grid3X3 size={18} />
+              <span>View Floor Plan</span>
+            </button>
+          </div>
+        )}
+
         {/* ── Exhibitors Section ── */}
         <div 
           className="exhibitors-section"
@@ -391,6 +425,14 @@ export default function EventDetail() {
                 >
                   <Settings size={14} />
                   <span>Tier Settings</span>
+                </button>
+                <button 
+                  className="btn-admin-add"
+                  onClick={() => setShowFloorPlanBuilder(true)}
+                  style={{ background: '#f0f4ff', color: '#3B82F6', border: '1px solid #dbeafe' }}
+                >
+                  <Grid3X3 size={14} />
+                  <span>Floor Plan</span>
                 </button>
               </div>
             </div>
@@ -557,6 +599,21 @@ export default function EventDetail() {
         onClose={() => setShowTierSettingsModal(false)}
         event={event}
         onSaved={loadEventData}
+      />
+
+      <FloorPlanBuilder 
+        isOpen={showFloorPlanBuilder}
+        onClose={() => setShowFloorPlanBuilder(false)}
+        eventId={event?.id}
+        exhibitors={exhibitors}
+        sponsorTiers={event?.sponsorTiers || DEFAULT_TIERS}
+        onSaved={checkFloorPlan}
+      />
+
+      <FloorPlanViewer 
+        isOpen={showFloorPlanViewer}
+        onClose={() => setShowFloorPlanViewer(false)}
+        eventId={event?.id}
       />
     </div>
   );

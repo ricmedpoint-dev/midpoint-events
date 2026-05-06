@@ -352,3 +352,38 @@ export async function deleteComment(commentId, bannerId) {
     throw error;
   }
 }
+
+// ── Floor Plans ──
+
+/**
+ * Saves or updates a floor plan for an event.
+ * Stored in floorplans/{eventId}
+ */
+export async function saveFloorPlan(eventId, floorPlanData) {
+  if (!eventId) throw new Error("Missing eventId");
+  const docRef = doc(db, 'floorplans', eventId);
+  await setDoc(docRef, {
+    ...floorPlanData,
+    updatedAt: new Date().toISOString(),
+  }, { merge: true });
+}
+
+/**
+ * Gets the floor plan for an event.
+ */
+export async function getFloorPlan(eventId) {
+  if (!eventId) return null;
+  const docRef = doc(db, 'floorplans', eventId);
+  const snap = await getDoc(docRef);
+  if (!snap.exists()) return null;
+  return snap.data();
+}
+
+/**
+ * Deletes the floor plan for an event.
+ */
+export async function deleteFloorPlan(eventId) {
+  if (!eventId) return;
+  const docRef = doc(db, 'floorplans', eventId);
+  await deleteDoc(docRef);
+}
