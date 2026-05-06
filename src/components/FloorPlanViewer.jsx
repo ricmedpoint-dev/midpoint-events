@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback, memo } from 'react';
-import { X, ZoomIn, ZoomOut, Move, Grid3X3, Download } from 'lucide-react';
+import { X, ZoomIn, ZoomOut, Move, Grid3X3, Download, ChevronDown } from 'lucide-react';
 import { getFloorPlan } from '../firebase/firestore';
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
@@ -53,14 +53,16 @@ export default function FloorPlanViewer({ isOpen, onClose, eventId, sponsorTiers
   const fitZoom = useCallback((fp = floorPlan) => {
     if (!gridAreaRef.current || !fp) return;
     const areaRect = gridAreaRef.current.getBoundingClientRect();
-    if (areaRect.width === 0) return;
+    if (!areaRect || areaRect.width === 0) return;
 
-    const totalW = fp.width * CELL_SIZE + GATE_PADDING * 2;
-    const totalH = fp.height * CELL_SIZE + GATE_PADDING * 2;
+    const totalW = (Number(fp.width) || 10) * CELL_SIZE + GATE_PADDING * 2;
+    const totalH = (Number(fp.height) || 10) * CELL_SIZE + GATE_PADDING * 2;
     const scaleX = (areaRect.width - 60) / totalW;
     const scaleY = (areaRect.height - 60) / totalH;
-    const fitScale = Math.min(scaleX, scaleY, 1.5);
+    let fitScale = Math.min(scaleX, scaleY, 1.5);
     
+    if (isNaN(fitScale) || !isFinite(fitScale)) fitScale = 1;
+
     setZoom(Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, fitScale)));
     setPan({ x: 0, y: 0 });
   }, [floorPlan]);
@@ -139,12 +141,10 @@ export default function FloorPlanViewer({ isOpen, onClose, eventId, sponsorTiers
     const boothCenterX = (booth.x + booth.widthM / 2) * CELL_SIZE + GATE_PADDING;
     const boothCenterY = (booth.y + booth.heightM / 2) * CELL_SIZE + GATE_PADDING;
 
-    const newZoom = 1.8;
+    const newZoom = 0.5;
     setZoom(newZoom);
     
     // Pan is the offset from the "natural" centered position
-    // If booth is at center, pan is 0. 
-    // If booth is to the right of center, we pan left (negative x)
     setPan({
       x: (wrapperCenterX - boothCenterX) * newZoom,
       y: (wrapperCenterY - boothCenterY) * newZoom
@@ -245,10 +245,13 @@ export default function FloorPlanViewer({ isOpen, onClose, eventId, sponsorTiers
       const dy = e.touches[0].clientY - e.touches[1].clientY;
       const dist = Math.hypot(dx, dy);
       
-      // Calculate zoom relative to start for maximum stability
-      const scale = dist / pinchStartDist.current;
-      const nextZoom = pinchStartZoom.current * scale;
-      setZoom(Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, nextZoom)));
+      if (pinchStartDist.current > 0) {
+        const scale = dist / pinchStartDist.current;
+        const nextZoom = pinchStartZoom.current * scale;
+        if (isFinite(nextZoom)) {
+          setZoom(Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, nextZoom)));
+        }
+      }
     }
   }, []);
 
@@ -466,7 +469,11 @@ export default function FloorPlanViewer({ isOpen, onClose, eventId, sponsorTiers
                 </div>
               </div>
 
-
+              {/* Directory Hint / Onboarding */}
+              <div className="fp-directory-hint">
+                <span>Exhibitor Directory Below</span>
+                <ChevronDown size={20} className="fp-bounce-icon" />
+              </div>
 
               {/* Booth Details Directory */}
               <div className="fp-directory">
