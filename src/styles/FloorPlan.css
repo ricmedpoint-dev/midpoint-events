@@ -1126,3 +1126,52 @@
     min-width: 36px;
   }
 }
+
+/* ── Confirm Exit Modal ── */
+.fp-confirm-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.5);
+  z-index: 5000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  animation: fpFadeIn 0.2s ease;
+}
+
+.fp-confirm-modal {
+  background: #fff;
+  border-radius: 12px;
+  padding: 32px;
+  max-width: 420px;
+  width: 100%;
+  box-shadow: 0 20px 50px rgba(0,0,0,0.3);
+  text-align: center;
+}
+
+.fp-confirm-modal h3 {
+  margin: 0 0 12px 0;
+  font-family: var(--font-heading, 'Outfit', sans-serif);
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #1a1a2e;
+}
+
+.fp-confirm-modal p {
+  font-size: 0.95rem;
+  color: #495057;
+  line-height: 1.6;
+  margin-bottom: 28px;
+}
+
+.fp-confirm-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
+
+.fp-confirm-actions .fp-btn {
+  min-width: 120px;
+  justify-content: center;
+}

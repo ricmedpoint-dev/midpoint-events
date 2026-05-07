@@ -93,6 +93,7 @@ export default function EventDetail() {
   const [showFloorPlanBuilder, setShowFloorPlanBuilder] = useState(false);
   const [showFloorPlanViewer, setShowFloorPlanViewer] = useState(false);
   const [hasFloorPlan, setHasFloorPlan] = useState(false);
+  const [floorPlanLoading, setFloorPlanLoading] = useState(true);
   const [selectedExhibitor, setSelectedExhibitor] = useState(null);
   const { isAdmin } = useAuth();
 
@@ -167,11 +168,14 @@ export default function EventDetail() {
   // Check if floor plan exists for this event
   const checkFloorPlan = async () => {
     if (!event?.id) return;
+    setFloorPlanLoading(true);
     try {
       const fp = await getFloorPlan(event.id);
       setHasFloorPlan(!!fp && (fp.booths?.length > 0));
     } catch (err) {
       console.error('Failed to check floor plan', err);
+    } finally {
+      setFloorPlanLoading(false);
     }
   };
 
@@ -378,20 +382,26 @@ export default function EventDetail() {
             )}
           </div>
         </div>
-
+ 
         {/* Floor Plan View Button (shown to all users when a floor plan exists) */}
-        {hasFloorPlan && (
-          <div className="fp-view-btn-section">
-            <button 
-              className="fp-view-btn"
-              onClick={() => setShowFloorPlanViewer(true)}
-            >
-              <Grid3X3 size={18} />
-              <span>View Floor Plan</span>
-            </button>
+        {(floorPlanLoading || hasFloorPlan) && (
+          <div className="fp-view-btn-section" style={{ minHeight: '60px', display: 'flex', alignItems: 'center', justifyCenter: 'center' }}>
+            {floorPlanLoading ? (
+              <div className="loading-spinner-container" style={{ padding: '10px' }}>
+                <div className="loading-spinner-mini" style={{ borderTopColor: event.eventColor || '#E31E24' }} />
+              </div>
+            ) : (
+              <button 
+                className="fp-view-btn"
+                onClick={() => setShowFloorPlanViewer(true)}
+              >
+                <Grid3X3 size={18} />
+                <span>View Floor Plan</span>
+              </button>
+            )}
           </div>
         )}
-
+ 
         {/* ── Exhibitors Section ── */}
         <div 
           className="exhibitors-section"
@@ -417,7 +427,7 @@ export default function EventDetail() {
                   <Send size={14} />
                   <span>Add Exhibitor</span>
                 </button>
-
+ 
                 <button 
                   className="btn-admin-add"
                   onClick={() => setShowTierSettingsModal(true)}
@@ -437,8 +447,13 @@ export default function EventDetail() {
               </div>
             </div>
           )}
-
-          {groupedExhibitors.length > 0 ? (
+ 
+          {exhibitorsLoading ? (
+            <div className="loading-spinner-container">
+              <div className="loading-spinner" style={{ borderTopColor: event.eventColor || '#E31E24' }} />
+              <p style={{ fontSize: '0.9rem', color: '#666' }}>Loading Exhibitors...</p>
+            </div>
+          ) : groupedExhibitors.length > 0 ? (
             groupedExhibitors.map((group, gIdx) => (
               <div key={gIdx} className={`exhibitors-group ${getTierClass(group.type)}`}>
                 <h3 className="group-header">
@@ -475,16 +490,16 @@ export default function EventDetail() {
               </div>
             ))
           ) : (
-            !exhibitorsLoading && <p className="no-comments" style={{ textAlign: 'center', padding: '20px' }}>Exhibitors list will be updated soon.</p>
+            <p className="no-comments" style={{ textAlign: 'center', padding: '20px' }}>Exhibitors list will be updated soon.</p>
           )}
         </div>
-
+ 
         {/* Social Section: Comments */}
         <div className="detail-social-section">
           <div className="social-header">
             <h3>Comments ({comments.length})</h3>
           </div>
-
+ 
           <form className="comment-form" onSubmit={handleComment}>
             {!user && (
               <input 
@@ -509,7 +524,7 @@ export default function EventDetail() {
               </button>
             </div>
           </form>
-
+ 
           <div className="comments-list">
             {comments.length > 0 ? (
               comments.map((comment) => (
@@ -548,9 +563,10 @@ export default function EventDetail() {
             )}
           </div>
         </div>
+ 
       </div>
-
-      {/* Action Buttons */}
+ 
+      {/* Action Buttons - Snapped to bottom, matching card width */}
       <div className="detail-actions">
         <button 
           className="btn-register" 
@@ -565,7 +581,7 @@ export default function EventDetail() {
           <span>Enquire to Exhibit</span>
         </button>
       </div>
-
+ 
       {/* Modals */}
       <RegisterModal 
         isOpen={showRegisterModal} 
@@ -615,6 +631,8 @@ export default function EventDetail() {
         onClose={() => setShowFloorPlanViewer(false)}
         eventId={event?.id}
         sponsorTiers={event?.sponsorTiers || DEFAULT_TIERS}
+        event={event}
+        exhibitors={exhibitors}
       />
     </div>
   );

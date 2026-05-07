@@ -5,11 +5,11 @@ import { doc, updateDoc } from 'firebase/firestore';
 
 const DEFAULT_TIERS = [
   { id: 'main', label: 'Main Sponsor', color: '#1d7dcc' },
-  { id: 'strategic', label: 'Strategic Partner/s', color: '#1d7dcc' },
-  { id: 'platinum', label: 'Platinum Sponsor/s', color: '#E5E4E2' },
-  { id: 'gold', label: 'Gold Sponsor/s', color: '#FFD700' },
-  { id: 'silver', label: 'Silver Sponsor/s', color: '#C0C0C0' },
-  { id: 'bronze', label: 'Bronze Sponsor/s', color: '#CD7F32' },
+  { id: 'strategic', label: 'Strategic Partner', color: '#1d7dcc' },
+  { id: 'platinum', label: 'Platinum Sponsor', color: '#E5E4E2' },
+  { id: 'gold', label: 'Gold Sponsor', color: '#FFD700' },
+  { id: 'silver', label: 'Silver Sponsor', color: '#C0C0C0' },
+  { id: 'bronze', label: 'Bronze Sponsor', color: '#CD7F32' },
   { id: 'others', label: 'Participations', color: '#f0f0f0' }
 ];
 

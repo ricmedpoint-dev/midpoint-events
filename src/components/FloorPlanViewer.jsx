@@ -21,7 +21,39 @@ const loadImage = (url) => {
   });
 };
 
-export default function FloorPlanViewer({ isOpen, onClose, eventId, sponsorTiers = [] }) {
+export default function FloorPlanViewer({ isOpen, onClose, eventId, sponsorTiers = [], event, exhibitors = [] }) {
+  const resolveBoothData = useCallback((booth) => {
+    // 1. Try to find exhibitor by ID (best way)
+    let exhibitor = booth.exhibitorId ? exhibitors.find(ex => ex.id === booth.exhibitorId) : null;
+    
+    // 2. If not found by ID, try matching by name (migration for existing data)
+    if (!exhibitor && booth.name && booth.name !== 'Available' && booth.name !== 'TBD') {
+      exhibitor = exhibitors.find(ex => ex.name === booth.name);
+    }
+
+    if (exhibitor) {
+      return {
+        ...booth,
+        name: exhibitor.name,
+        logo: exhibitor.logo,
+        sponsorType: exhibitor.sponsorType,
+        exhibitorId: exhibitor.id // Ensure ID is present for future
+      };
+    }
+    
+    // 3. If it HAD an exhibitorId but no exhibitor was found, it was deleted
+    if (booth.exhibitorId) {
+      return {
+        ...booth,
+        name: 'Available',
+        logo: null,
+        sponsorType: null,
+        color: '#f1f3f5'
+      };
+    }
+    
+    return booth;
+  }, [exhibitors]);
   const [floorPlan, setFloorPlan] = useState(null);
   const [loading, setLoading] = useState(true);
   const [detailBooth, setDetailBooth] = useState(null);
@@ -158,61 +190,171 @@ export default function FloorPlanViewer({ isOpen, onClose, eventId, sponsorTiers
     if (!gridAreaRef.current || !floorPlan) return;
     setIsExporting(true);
     try {
-      const pdf = new jsPDF('l', 'mm', 'a4');
+      // Color helper
+      const hexToRgb = (hex) => {
+        const c = hex?.startsWith('#') ? hex.slice(1) : hex;
+        if (c?.length !== 6) return { r: 227, g: 30, b: 36 }; 
+        return {
+          r: parseInt(c.slice(0, 2), 16),
+          g: parseInt(c.slice(2, 4), 16),
+          b: parseInt(c.slice(4, 6), 16)
+        };
+      };
+      const hColor = hexToRgb(event?.eventColor || '#E31E24');
+
+      // 1. Setup PDF Orientation based on Floor Plan aspect ratio
+      const totalW = (Number(floorPlan.width) || 10) * CELL_SIZE + GATE_PADDING * 2;
+      const totalH = (Number(floorPlan.height) || 10) * CELL_SIZE + GATE_PADDING * 2;
+      const orientation = totalW > totalH ? 'l' : 'p';
+      
+      const pdf = new jsPDF(orientation, 'mm', 'a4');
       const pageWidth = pdf.internal.pageSize.getWidth();
       const pageHeight = pdf.internal.pageSize.getHeight();
+      const margin = 15;
+      const contentWidth = pageWidth - (margin * 2);
 
-      // 1. Capture Floor Plan
-      // Temporarily set zoom/pan to see full plan for capture if possible, or just capture current view
+      // ── Page 1 Header ──
+      pdf.setFillColor(hColor.r, hColor.g, hColor.b); 
+      pdf.rect(0, 0, pageWidth, 25, 'F');
+      
+      pdf.setTextColor(255, 255, 255);
+      pdf.setFontSize(18);
+      pdf.setFont('helvetica', 'bold');
+      pdf.text(event?.title || 'Event Floor Plan', margin, 12);
+      
+      pdf.setFontSize(10);
+      pdf.setFont('helvetica', 'normal');
+      pdf.text(`${event?.date || ''} | ${event?.location || ''}`, margin, 18);
+      
+      pdf.setFontSize(12);
+      pdf.text('OFFICIAL FLOOR PLAN', pageWidth - margin, 15, { align: 'right' });
+
+      // Add Logo to Header if available
+      if (event?.image || event?.mediaUrl) {
+        try {
+          const logoImg = await loadImage(event.image || event.mediaUrl);
+          // Small square logo on the right side of header
+          pdf.addImage(logoImg, 'PNG', pageWidth - margin - 50, 4, 16, 16);
+        } catch (e) {
+          console.warn('Could not load event logo for PDF');
+        }
+      }
+
+      // ── Capture Floor Plan ──
+      // Use onclone to reset transforms and capture the FULL grid
       const canvas = await html2canvas(gridAreaRef.current, {
         useCORS: true,
         scale: 2,
-        backgroundColor: '#f8f9fa'
+        backgroundColor: '#ffffff',
+        onclone: (clonedDoc) => {
+          const wrapper = clonedDoc.querySelector('.fp-grid-wrapper');
+          if (wrapper) {
+            wrapper.style.transform = 'none';
+            wrapper.style.position = 'static';
+            wrapper.style.margin = '0';
+            wrapper.style.padding = `${GATE_PADDING}px`;
+            
+            const area = clonedDoc.querySelector('.fp-grid-area');
+            if (area) {
+              area.style.width = `${totalW}px`;
+              area.style.height = `${totalH}px`;
+              area.style.display = 'block';
+              area.style.overflow = 'visible';
+              area.style.background = '#ffffff';
+            }
+          }
+        }
       });
+
       const imgData = canvas.toDataURL('image/png');
-      const imgProps = pdf.getImageProperties(imgData);
-      const pdfImgHeight = (imgProps.height * pageWidth) / imgProps.width;
+      const availableHeight = pageHeight - 45; // Space below header and above footer
       
-      pdf.addImage(imgData, 'PNG', 0, 0, pageWidth, Math.min(pageHeight, pdfImgHeight));
+      // Calculate dimensions to fit in available space while maintaining aspect ratio
+      let fitW = contentWidth;
+      let fitH = (canvas.height * fitW) / canvas.width;
       
-      // 2. Add Booth List on new page
+      if (fitH > availableHeight) {
+        fitH = availableHeight;
+        fitW = (canvas.width * fitH) / canvas.height;
+      }
+      
+      const x = (pageWidth - fitW) / 2;
+      const y = 30 + (availableHeight - fitH) / 2;
+      
+      pdf.addImage(imgData, 'PNG', x, y, fitW, fitH);
+
+      // ── Page 1 Footer ──
+      pdf.setFontSize(8);
+      pdf.setTextColor(150, 150, 150);
+      pdf.text(`Generated on ${new Date().toLocaleDateString()} | Midpoint Events Floor Plan Viewer`, pageWidth / 2, pageHeight - 8, { align: 'center' });
+
+      // ── Directory Pages ──
       pdf.addPage('p', 'mm', 'a4');
-      pdf.setFontSize(18);
-      pdf.setTextColor(227, 30, 36);
-      pdf.text('Booth Details Directory', 20, 20);
+      const dirPageWidth = pdf.internal.pageSize.getWidth();
+      const dirPageHeight = pdf.internal.pageSize.getHeight();
       
-      pdf.setFontSize(11);
+      // Header for Directory
+      pdf.setFillColor(hColor.r, hColor.g, hColor.b);
+      pdf.rect(0, 0, dirPageWidth, 20, 'F');
+      pdf.setTextColor(255, 255, 255);
+      pdf.setFontSize(14);
+      pdf.setFont('helvetica', 'bold');
+      pdf.text('Exhibitor Directory', margin, 13);
+      
       pdf.setTextColor(26, 26, 46);
+      pdf.setFontSize(11);
       
-      const sortedBooths = [...(floorPlan.booths || [])].sort((a, b) => 
-        a.boothNumber.localeCompare(b.boothNumber, undefined, { numeric: true })
-      );
+      const sortedBooths = [...(floorPlan.booths || [])]
+        .map(resolveBoothData)
+        .sort((a, b) => 
+          a.boothNumber.localeCompare(b.boothNumber, undefined, { numeric: true })
+        );
 
       let yPos = 35;
       for (const b of sortedBooths) {
-        if (yPos > 280) {
+        if (yPos > dirPageHeight - 20) {
           pdf.addPage('p', 'mm', 'a4');
-          yPos = 20;
+          // Re-add header on new page
+          pdf.setFillColor(hColor.r, hColor.g, hColor.b);
+          pdf.rect(0, 0, dirPageWidth, 20, 'F');
+          pdf.setTextColor(255, 255, 255);
+          pdf.setFontSize(14);
+          pdf.setFont('helvetica', 'bold');
+          pdf.text('Exhibitor Directory (continued)', margin, 13);
+          pdf.setTextColor(26, 26, 46);
+          pdf.setFontSize(11);
+          yPos = 35;
         }
 
         // Add logo if exists
         if (b.logo) {
           try {
             const img = await loadImage(b.logo);
-            pdf.addImage(img, 'PNG', 20, yPos - 6, 8, 8);
+            const imgProps = pdf.getImageProperties(img);
+            const maxL = 10;
+            let lW = maxL;
+            let lH = (imgProps.height * lW) / imgProps.width;
+            if (lH > maxL) {
+              lH = maxL;
+              lW = (imgProps.width * lH) / imgProps.height;
+            }
+            // Center the contained image within the 10x10 space
+            const lX = margin + (maxL - lW) / 2;
+            const lY = yPos - (lH / 2) - 3.5; 
+            pdf.addImage(img, 'PNG', lX, lY, lW, lH);
           } catch (err) {
-            console.warn('Could not load logo for PDF:', b.name);
+            // Silently skip if logo fails
           }
         }
 
         pdf.setFont('helvetica', 'bold');
-        pdf.text(`${b.boothNumber}`, 32, yPos);
+        pdf.text(`${b.boothNumber}`, margin + 14, yPos);
         pdf.setFont('helvetica', 'normal');
-        pdf.text(` - ${b.name}`, 45, yPos);
-        yPos += 12;
+        pdf.text(` - ${b.name}`, margin + 28, yPos);
+        yPos += 14;
       }
 
-      pdf.save(`FloorPlan_${eventId}.pdf`);
+      pdf.save(`${(event?.title || 'FloorPlan').replace(/\s+/g, '_')}_${eventId}.pdf`);
     } catch (error) {
       console.error('PDF Export failed:', error);
       alert('Failed to generate PDF. Please try again.');
@@ -278,7 +420,7 @@ export default function FloorPlanViewer({ isOpen, onClose, eventId, sponsorTiers
 
   const gridWidth = floorPlan?.width || 0;
   const gridHeight = floorPlan?.height || 0;
-  const booths = floorPlan?.booths || [];
+  const booths = (floorPlan?.booths || []).map(resolveBoothData);
   const gridPxW = gridWidth * CELL_SIZE;
   const gridPxH = gridHeight * CELL_SIZE;
 
@@ -482,7 +624,7 @@ export default function FloorPlanViewer({ isOpen, onClose, eventId, sponsorTiers
                   <p>Click on any exhibitor to locate them on the floor plan</p>
                 </div>
                 <div className="fp-directory-grid">
-                  {[...(floorPlan.booths || [])]
+                  {booths
                     .sort((a, b) => a.boothNumber.localeCompare(b.boothNumber, undefined, { numeric: true }))
                     .map(b => (
                       <div 
@@ -523,63 +665,66 @@ export default function FloorPlanViewer({ isOpen, onClose, eventId, sponsorTiers
         )}
 
         {/* Booth Detail Modal */}
-        {detailBooth && (
-          <div className="fp-booth-detail-overlay" onClick={() => setDetailBooth(null)}>
-            <div className="fp-booth-detail" onClick={e => e.stopPropagation()}>
-              <button className="fp-close-btn" onClick={() => setDetailBooth(null)}>
-                <X size={16} />
-              </button>
-              {detailBooth.sponsorType && (
-                <div 
-                  className="fp-booth-detail-tier" 
-                  style={{ 
-                    color: sponsorTiers.find(t => t.label === detailBooth.sponsorType)?.color || detailBooth.color, 
-                    fontWeight: 800, 
-                    fontSize: '0.85rem', 
-                    marginBottom: '8px', 
-                    textTransform: 'uppercase', 
-                    letterSpacing: '0.5px' 
-                  }}
-                >
-                  {detailBooth.sponsorType}
-                </div>
-              )}
-
-              {detailBooth.logo && (
-                <div className="fp-booth-detail-logo">
-                  <img src={detailBooth.logo} alt={detailBooth.name} />
-                </div>
-              )}
-
-              <h3>{detailBooth.name}</h3>
-              <div className="fp-booth-detail-number">Booth {detailBooth.boothNumber}</div>
-              
-              <div className="fp-booth-detail-meta">
-                {detailBooth.name !== 'Available' && (
-                  <div className="fp-booth-detail-meta-item">
-                    <strong>Exhibitor:</strong>
-                    <span>{detailBooth.name}</span>
+        {detailBooth && (() => {
+          const resolved = resolveBoothData(detailBooth);
+          return (
+            <div className="fp-booth-detail-overlay" onClick={() => setDetailBooth(null)}>
+              <div className="fp-booth-detail" onClick={e => e.stopPropagation()}>
+                <button className="fp-close-btn" onClick={() => setDetailBooth(null)}>
+                  <X size={16} />
+                </button>
+                {resolved.sponsorType && (
+                  <div 
+                    className="fp-booth-detail-tier" 
+                    style={{ 
+                      color: sponsorTiers.find(t => t.label === resolved.sponsorType)?.color || resolved.color, 
+                      fontWeight: 800, 
+                      fontSize: '0.85rem', 
+                      marginBottom: '8px', 
+                      textTransform: 'uppercase', 
+                      letterSpacing: '0.5px' 
+                    }}
+                  >
+                    {resolved.sponsorType.replace(/\/s$/, '')}
                   </div>
                 )}
-                <div className="fp-booth-detail-meta-item">
-                  <strong>Size:</strong>
-                  <span>{detailBooth.widthM}m × {detailBooth.heightM}m ({detailBooth.widthM * detailBooth.heightM} m²)</span>
-                </div>
-                <div className="fp-booth-detail-meta-item">
-                  <strong>Position:</strong>
-                  <span>Row {detailBooth.y + 1}, Col {detailBooth.x + 1}</span>
-                </div>
-                <div className="fp-booth-detail-meta-item">
-                  <strong>Color:</strong>
-                  <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <span style={{ width: '14px', height: '14px', borderRadius: '4px', background: detailBooth.color, display: 'inline-block', border: '1px solid rgba(0,0,0,0.1)' }} />
-                    {detailBooth.color}
-                  </span>
+
+                {resolved.logo && (
+                  <div className="fp-booth-detail-logo">
+                    <img src={resolved.logo} alt={resolved.name} />
+                  </div>
+                )}
+
+                <h3>{resolved.name}</h3>
+                <div className="fp-booth-detail-number">Booth {resolved.boothNumber}</div>
+                
+                <div className="fp-booth-detail-meta">
+                  {resolved.name !== 'Available' && resolved.name !== 'TBD' && (
+                    <div className="fp-booth-detail-meta-item">
+                      <strong>Exhibitor:</strong>
+                      <span>{resolved.name}</span>
+                    </div>
+                  )}
+                  <div className="fp-booth-detail-meta-item">
+                    <strong>Size:</strong>
+                    <span>{resolved.widthM}m × {resolved.heightM}m ({resolved.widthM * resolved.heightM} m²)</span>
+                  </div>
+                  <div className="fp-booth-detail-meta-item">
+                    <strong>Position:</strong>
+                    <span>Row {resolved.y + 1}, Col {resolved.x + 1}</span>
+                  </div>
+                  <div className="fp-booth-detail-meta-item">
+                    <strong>Color:</strong>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <span style={{ width: '14px', height: '14px', borderRadius: '4px', background: resolved.color, display: 'inline-block', border: '1px solid rgba(0,0,0,0.1)' }} />
+                      {resolved.color}
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
       </div>
     </div>
   );

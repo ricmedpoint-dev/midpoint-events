@@ -17,6 +17,38 @@ function generateId() {
 }
 
 export default function FloorPlanBuilder({ isOpen, onClose, eventId, onSaved, exhibitors = [], sponsorTiers = [] }) {
+  const resolveBoothData = useCallback((booth) => {
+    // 1. Try to find exhibitor by ID (best way)
+    let exhibitor = booth.exhibitorId ? exhibitors.find(ex => ex.id === booth.exhibitorId) : null;
+    
+    // 2. If not found by ID, try matching by name (migration for existing data)
+    if (!exhibitor && booth.name && booth.name !== 'Available' && booth.name !== 'TBD') {
+      exhibitor = exhibitors.find(ex => ex.name === booth.name);
+    }
+
+    if (exhibitor) {
+      return {
+        ...booth,
+        name: exhibitor.name,
+        logo: exhibitor.logo,
+        sponsorType: exhibitor.sponsorType,
+        exhibitorId: exhibitor.id
+      };
+    }
+    
+    // 3. If it HAD an exhibitorId but no exhibitor was found, it was deleted
+    if (booth.exhibitorId) {
+      return {
+        ...booth,
+        name: 'Available',
+        logo: null,
+        sponsorType: null,
+        color: '#f1f3f5'
+      };
+    }
+    
+    return booth;
+  }, [exhibitors]);
   // Grid dimensions
   const [gridWidth, setGridWidth] = useState(20);
   const [gridHeight, setGridHeight] = useState(15);
@@ -48,7 +80,8 @@ export default function FloorPlanBuilder({ isOpen, onClose, eventId, onSaved, ex
     heightM: 3,
     color: DEFAULT_COLORS[0],
     useTierColor: true,
-    logo: null
+    logo: null,
+    exhibitorId: null
   });
 
   // Drag state
@@ -65,7 +98,8 @@ export default function FloorPlanBuilder({ isOpen, onClose, eventId, onSaved, ex
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [colorIndex, setColorIndex] = useState(0);
+  const [initialData, setInitialData] = useState(null);
+  const [showExitConfirm, setShowExitConfirm] = useState(false);
   const [isManualExhibitor, setIsManualExhibitor] = useState(false);
 
   const gridRef = useRef(null);
@@ -83,8 +117,27 @@ export default function FloorPlanBuilder({ isOpen, onClose, eventId, onSaved, ex
         setGridHeight(h);
         setGridWidthInput(String(w));
         setGridHeightInput(String(h));
-        setBooths(data.booths || []);
+        
+        // Auto-migration: Link booths to exhibitorIds by name if missing
+        const rawBooths = data.booths || [];
+        const migratedBooths = rawBooths.map(b => {
+          if (!b.exhibitorId && b.name && b.name !== 'Available' && b.name !== 'TBD') {
+            const ex = exhibitors.find(e => e.name === b.name);
+            if (ex) return { ...b, exhibitorId: ex.id };
+          }
+          return b;
+        });
+        
+        setBooths(migratedBooths);
         setGates(data.gates || []);
+        
+        // Save initial state for change detection
+        setInitialData({
+          width: w,
+          height: h,
+          booths: migratedBooths,
+          gates: data.gates || []
+        });
       } else {
         setGridWidth(20);
         setGridHeight(15);
@@ -95,7 +148,7 @@ export default function FloorPlanBuilder({ isOpen, onClose, eventId, onSaved, ex
       }
       setLoading(false);
     }).catch(() => setLoading(false));
-  }, [isOpen, eventId]);
+  }, [isOpen, eventId, exhibitors]); // Added exhibitors to dependencies for migration
 
   // Auto-fit zoom on load
   useEffect(() => {
@@ -137,18 +190,38 @@ export default function FloorPlanBuilder({ isOpen, onClose, eventId, onSaved, ex
   const handleSave = async () => {
     setSaving(true);
     try {
-      await saveFloorPlan(eventId, {
+      const dataToSave = {
         width: gridWidth,
         height: gridHeight,
         booths,
         gates
-      });
+      };
+      await saveFloorPlan(eventId, dataToSave);
+      setInitialData(dataToSave); // Update initial state after save
       if (onSaved) onSaved();
       alert('Floor plan saved!');
     } catch (err) {
       alert('Failed to save: ' + err.message);
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleCloseRequest = () => {
+    const currentData = {
+      width: gridWidth,
+      height: gridHeight,
+      booths,
+      gates
+    };
+    
+    // Check for changes (using stringify for deep comparison)
+    const hasChanges = initialData && JSON.stringify(initialData) !== JSON.stringify(currentData);
+    
+    if (hasChanges) {
+      setShowExitConfirm(true);
+    } else {
+      onClose();
     }
   };
 
@@ -195,7 +268,8 @@ export default function FloorPlanBuilder({ isOpen, onClose, eventId, onSaved, ex
           heightM: Math.max(1, Math.min(gridHeight, parseInt(newBooth.heightM) || 1)),
           color: newBooth.color,
           useTierColor: newBooth.useTierColor,
-          logo: newBooth.logo
+          logo: exhibitor ? newBooth.logo : null, // Enforce no logo for manual
+          exhibitorId: exhibitor ? newBooth.exhibitorId : null
         };
       }));
       setEditingBoothId(null);
@@ -210,7 +284,8 @@ export default function FloorPlanBuilder({ isOpen, onClose, eventId, onSaved, ex
         heightM: Math.max(1, Math.min(gridHeight, parseInt(newBooth.heightM) || 1)),
         color: newBooth.color,
         useTierColor: newBooth.useTierColor,
-        logo: newBooth.logo,
+        logo: exhibitor ? newBooth.logo : null, // Enforce no logo for manual
+        exhibitorId: exhibitor ? newBooth.exhibitorId : null,
         x: 0,
         y: 0,
         rotation: 0
@@ -231,7 +306,8 @@ export default function FloorPlanBuilder({ isOpen, onClose, eventId, onSaved, ex
       heightM: 3,
       color: DEFAULT_COLORS[0],
       useTierColor: true,
-      logo: null
+      logo: null,
+      exhibitorId: null
     });
     setIsManualExhibitor(false);
   };
@@ -246,7 +322,8 @@ export default function FloorPlanBuilder({ isOpen, onClose, eventId, onSaved, ex
       heightM: booth.heightM,
       color: booth.color,
       useTierColor: booth.useTierColor !== undefined ? booth.useTierColor : true,
-      logo: booth.logo || null
+      logo: booth.logo || null,
+      exhibitorId: booth.exhibitorId || null
     });
     // If not in exhibitors list and not 'Available', mark as manual
     const inList = exhibitors.some(ex => ex.name === booth.name);
@@ -260,9 +337,17 @@ export default function FloorPlanBuilder({ isOpen, onClose, eventId, onSaved, ex
     const newId = generateId();
     const nextNumber = getNextBoothNumber(booth.boothNumber, booths);
     const duplicated = {
-      ...booth,
       id: newId,
       boothNumber: nextNumber,
+      name: 'Available',
+      widthM: booth.widthM,
+      heightM: booth.heightM,
+      color: booth.color,
+      useTierColor: booth.useTierColor !== undefined ? booth.useTierColor : true,
+      logo: null,
+      exhibitorId: null,
+      sponsorType: '',
+      rotation: booth.rotation || 0,
       x: Math.min(gridWidth - booth.widthM, booth.x + 1),
       y: Math.min(gridHeight - booth.heightM, booth.y + 1)
     };
@@ -305,7 +390,8 @@ export default function FloorPlanBuilder({ isOpen, onClose, eventId, onSaved, ex
       heightM: 3,
       color: DEFAULT_COLORS[0],
       useTierColor: true,
-      logo: null
+      logo: null,
+      exhibitorId: null
     });
     setIsManualExhibitor(false);
   };
@@ -314,7 +400,7 @@ export default function FloorPlanBuilder({ isOpen, onClose, eventId, onSaved, ex
     const exhibitorName = e.target.value;
     if (exhibitorName === 'CUSTOM_OTHER') {
       setIsManualExhibitor(true);
-      setNewBooth(prev => ({ ...prev, name: '', useTierColor: false }));
+      setNewBooth(prev => ({ ...prev, name: '', useTierColor: false, logo: null, exhibitorId: null }));
       return;
     }
     
@@ -333,10 +419,11 @@ export default function FloorPlanBuilder({ isOpen, onClose, eventId, onSaved, ex
         ...prev,
         name: exhibitor.name,
         color: color,
-        logo: exhibitor.logo || null
+        logo: exhibitor.logo || null,
+        exhibitorId: exhibitor.id
       }));
     } else {
-      setNewBooth(prev => ({ ...prev, name: exhibitorName, logo: null }));
+      setNewBooth(prev => ({ ...prev, name: exhibitorName, logo: null, exhibitorId: null }));
     }
   };
 
@@ -593,7 +680,7 @@ export default function FloorPlanBuilder({ isOpen, onClose, eventId, onSaved, ex
               <Save size={16} />
               <span className="fp-btn-label">{saving ? 'Saving...' : 'Save'}</span>
             </button>
-            <button className="fp-close-btn" onClick={onClose}>
+            <button className="fp-close-btn" onClick={handleCloseRequest}>
               <X size={18} />
             </button>
           </div>
@@ -649,78 +736,81 @@ export default function FloorPlanBuilder({ isOpen, onClose, eventId, onSaved, ex
                   </p>
                 )}
 
-                {booths.map((b, index) => (
-                  <div
-                    key={b.id}
-                    className={`fp-booth-item ${selectedBoothId === b.id ? 'active' : ''}`}
-                    onClick={() => setSelectedBoothId(b.id)}
-                    draggable
-                    onDragStart={(e) => {
-                      e.dataTransfer.setData('text/plain', index.toString());
-                      e.currentTarget.classList.add('is-dragging-list');
-                    }}
-                    onDragEnd={(e) => {
-                      e.currentTarget.classList.remove('is-dragging-list');
-                    }}
-                    onDragOver={(e) => {
-                      e.preventDefault();
-                      e.currentTarget.classList.add('drag-over');
-                    }}
-                    onDragLeave={(e) => {
-                      e.currentTarget.classList.remove('drag-over');
-                    }}
-                    onDrop={(e) => {
-                      e.preventDefault();
-                      e.currentTarget.classList.remove('drag-over');
-                      const fromIndex = parseInt(e.dataTransfer.getData('text/plain'));
-                      const toIndex = index;
-                      if (fromIndex === toIndex) return;
-                      
-                      const updated = [...booths];
-                      const [moved] = updated.splice(fromIndex, 1);
-                      updated.splice(toIndex, 0, moved);
-                      setBooths(updated);
-                    }}
-                  >
+                {booths.map((originalBooth, index) => {
+                  const b = resolveBoothData(originalBooth);
+                  return (
                     <div
-                      className="fp-booth-color-dot"
-                      style={{ background: b.color }}
-                    />
-                    <div className="fp-booth-item-info">
-                      <div className="fp-booth-item-number">{b.boothNumber}</div>
-                      <div className="fp-booth-item-name">{b.name}</div>
+                      key={b.id}
+                      className={`fp-booth-item ${selectedBoothId === b.id ? 'active' : ''}`}
+                      onClick={() => setSelectedBoothId(b.id)}
+                      draggable
+                      onDragStart={(e) => {
+                        e.dataTransfer.setData('text/plain', index.toString());
+                        e.currentTarget.classList.add('is-dragging-list');
+                      }}
+                      onDragEnd={(e) => {
+                        e.currentTarget.classList.remove('is-dragging-list');
+                      }}
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        e.currentTarget.classList.add('drag-over');
+                      }}
+                      onDragLeave={(e) => {
+                        e.currentTarget.classList.remove('drag-over');
+                      }}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        e.currentTarget.classList.remove('drag-over');
+                        const fromIndex = parseInt(e.dataTransfer.getData('text/plain'));
+                        const toIndex = index;
+                        if (fromIndex === toIndex) return;
+                        
+                        const updated = [...booths];
+                        const [moved] = updated.splice(fromIndex, 1);
+                        updated.splice(toIndex, 0, moved);
+                        setBooths(updated);
+                      }}
+                    >
+                      <div
+                        className="fp-booth-color-dot"
+                        style={{ background: b.color }}
+                      />
+                      <div className="fp-booth-item-info">
+                        <div className="fp-booth-item-number">{b.boothNumber}</div>
+                        <div className="fp-booth-item-name">{b.name}</div>
+                      </div>
+                      <div className="fp-booth-item-size">
+                        {b.widthM}×{b.heightM}m
+                      </div>
+                      <div className="fp-booth-item-actions">
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handleEditBooth(originalBooth); }}
+                          title="Edit Booth"
+                        >
+                          <Edit2 size={14} />
+                        </button>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handleDuplicateBooth(originalBooth); }}
+                          title="Duplicate Booth"
+                        >
+                          <Copy size={14} />
+                        </button>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handleRotate(b.id, 'cw'); }}
+                          title="Rotate"
+                        >
+                          <RotateCw size={14} />
+                        </button>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handleDeleteBooth(b.id); }}
+                          title="Delete"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
                     </div>
-                    <div className="fp-booth-item-size">
-                      {b.widthM}×{b.heightM}m
-                    </div>
-                    <div className="fp-booth-item-actions">
-                      <button
-                        onClick={(e) => { e.stopPropagation(); handleEditBooth(b); }}
-                        title="Edit Booth"
-                      >
-                        <Edit2 size={14} />
-                      </button>
-                      <button
-                        onClick={(e) => { e.stopPropagation(); handleDuplicateBooth(b); }}
-                        title="Duplicate Booth"
-                      >
-                        <Copy size={14} />
-                      </button>
-                      <button
-                        onClick={(e) => { e.stopPropagation(); handleRotate(b.id, 'cw'); }}
-                        title="Rotate"
-                      >
-                        <RotateCw size={14} />
-                      </button>
-                      <button
-                        onClick={(e) => { e.stopPropagation(); handleDeleteBooth(b.id); }}
-                        title="Delete"
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
 
                 {/* Gates (Entrance/Exit) List */}
                 {gates.length > 0 && (
@@ -788,7 +878,7 @@ export default function FloorPlanBuilder({ isOpen, onClose, eventId, onSaved, ex
                         placeholder="Manual Company Name"
                         style={{ marginTop: '4px' }}
                         value={newBooth.name}
-                        onChange={e => setNewBooth(prev => ({ ...prev, name: e.target.value }))}
+                        onChange={e => setNewBooth(prev => ({ ...prev, name: e.target.value, logo: null }))}
                         autoFocus
                       />
                     )}
@@ -918,14 +1008,14 @@ export default function FloorPlanBuilder({ isOpen, onClose, eventId, onSaved, ex
               </form>
             </div>
 
-            {/* Mobile sidebar toggle */}
-            <button
-              className="fp-sidebar-toggle fp-btn fp-btn-secondary"
-              onClick={() => setSidebarCollapsed(prev => !prev)}
-            >
-              {sidebarCollapsed ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
-              <span>{sidebarCollapsed ? 'Show Panel' : 'Hide Panel'}</span>
-            </button>
+          {/* Mobile sidebar toggle */}
+          <button
+            className="fp-sidebar-toggle fp-btn fp-btn-secondary"
+            onClick={() => setSidebarCollapsed(prev => !prev)}
+          >
+            {sidebarCollapsed ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
+            <span>{sidebarCollapsed ? 'Show Panel' : 'Hide Panel'}</span>
+          </button>
 
             {/* Grid Area */}
             <div
@@ -1059,18 +1149,21 @@ export default function FloorPlanBuilder({ isOpen, onClose, eventId, onSaved, ex
                   </div>
 
                   {/* Booths */}
-                  {booths.map(booth => (
-                    <Booth 
-                      key={booth.id}
-                      booth={booth}
-                      isSelected={selectedBoothId === booth.id}
-                      isDragging={dragging === booth.id}
-                      hasCollision={boothCollisions[booth.id]}
-                      onPointerDown={handleBoothPointerDown}
-                      onDoubleClick={setDetailBooth}
-                      onRotate={handleRotate}
-                    />
-                  ))}
+                  {booths.map(originalBooth => {
+                    const b = resolveBoothData(originalBooth);
+                    return (
+                      <Booth 
+                        key={b.id}
+                        booth={b}
+                        isSelected={selectedBoothId === b.id}
+                        isDragging={dragging === b.id}
+                        hasCollision={boothCollisions[b.id]}
+                        onPointerDown={(e) => handleBoothPointerDown(e, originalBooth)}
+                        onDoubleClick={setDetailBooth}
+                        onRotate={handleRotate}
+                      />
+                    );
+                  })}
                 </div>
               </div>
 
@@ -1091,64 +1184,98 @@ export default function FloorPlanBuilder({ isOpen, onClose, eventId, onSaved, ex
           </div>
         )}
 
-        {/* Booth Detail Modal */}
-        {detailBooth && (
-          <div className="fp-booth-detail-overlay" onClick={() => setDetailBooth(null)}>
-            <div className="fp-booth-detail" onClick={e => e.stopPropagation()}>
-              <button className="fp-close-btn" onClick={() => setDetailBooth(null)}>
-                <X size={16} />
-              </button>
-              {detailBooth.sponsorType && (
-                <div 
-                  className="fp-booth-detail-tier" 
-                  style={{ 
-                    color: sponsorTiers.find(t => t.label === detailBooth.sponsorType)?.color || detailBooth.color, 
-                    fontWeight: 800, 
-                    fontSize: '0.85rem', 
-                    marginBottom: '8px', 
-                    textTransform: 'uppercase', 
-                    letterSpacing: '0.5px' 
+        {/* Exit Confirmation Modal */}
+        {showExitConfirm && (
+          <div className="fp-confirm-overlay" onClick={() => setShowExitConfirm(false)}>
+            <div className="fp-confirm-modal" onClick={e => e.stopPropagation()}>
+              <h3>Unsaved Changes</h3>
+              <p>You have unsaved changes on your floor plan. Do you want to save them before closing?</p>
+              <div className="fp-confirm-actions">
+                <button 
+                  className="fp-btn fp-btn-secondary" 
+                  onClick={() => {
+                    setShowExitConfirm(false);
+                    onClose();
                   }}
                 >
-                  {detailBooth.sponsorType}
-                </div>
-              )}
-
-              {detailBooth.logo && (
-                <div className="fp-booth-detail-logo">
-                  <img src={detailBooth.logo} alt={detailBooth.name} />
-                </div>
-              )}
-
-              <h3>{detailBooth.name}</h3>
-              <div className="fp-booth-detail-number">Booth {detailBooth.boothNumber}</div>
-              
-              <div className="fp-booth-detail-meta">
-                {detailBooth.name !== 'Available' && (
-                  <div className="fp-booth-detail-meta-item">
-                    <strong>Exhibitor:</strong>
-                    <span>{detailBooth.name}</span>
-                  </div>
-                )}
-                <div className="fp-booth-detail-meta-item">
-                  <strong>Size:</strong>
-                  <span>{detailBooth.widthM}m × {detailBooth.heightM}m ({detailBooth.widthM * detailBooth.heightM} m²)</span>
-                </div>
-                <div className="fp-booth-detail-meta-item">
-                  <strong>Position:</strong>
-                  <span>Row {detailBooth.y + 1}, Col {detailBooth.x + 1}</span>
-                </div>
-                <div className="fp-booth-detail-meta-item">
-                  <strong>Color:</strong>
-                  <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <span style={{ width: '14px', height: '14px', borderRadius: '4px', background: detailBooth.color, display: 'inline-block', border: '1px solid rgba(0,0,0,0.1)' }} />
-                    {detailBooth.color}
-                  </span>
-                </div>
+                  No, Discard
+                </button>
+                <button 
+                  className="fp-btn fp-btn-primary" 
+                  onClick={async () => {
+                    await handleSave();
+                    setShowExitConfirm(false);
+                    onClose();
+                  }}
+                >
+                  Yes, Save
+                </button>
               </div>
             </div>
           </div>
         )}
+
+        {/* Booth Detail Modal */}
+        {detailBooth && (() => {
+          const resolved = resolveBoothData(detailBooth);
+          return (
+            <div className="fp-booth-detail-overlay" onClick={() => setDetailBooth(null)}>
+              <div className="fp-booth-detail" onClick={e => e.stopPropagation()}>
+                <button className="fp-close-btn" onClick={() => setDetailBooth(null)}>
+                  <X size={16} />
+                </button>
+                {resolved.sponsorType && (
+                  <div 
+                    className="fp-booth-detail-tier" 
+                    style={{ 
+                      color: sponsorTiers.find(t => t.label === resolved.sponsorType)?.color || resolved.color, 
+                      fontWeight: 800, 
+                      fontSize: '0.85rem', 
+                      marginBottom: '8px', 
+                      textTransform: 'uppercase', 
+                      letterSpacing: '0.5px' 
+                    }}
+                  >
+                    {resolved.sponsorType.replace(/\/s$/, '')}
+                  </div>
+                )}
+
+                {resolved.logo && (
+                  <div className="fp-booth-detail-logo">
+                    <img src={resolved.logo} alt={resolved.name} />
+                  </div>
+                )}
+
+                <h3>{resolved.name}</h3>
+                <div className="fp-booth-detail-number">Booth {resolved.boothNumber}</div>
+                
+                <div className="fp-booth-detail-meta">
+                  {resolved.name !== 'Available' && resolved.name !== 'TBD' && (
+                    <div className="fp-booth-detail-meta-item">
+                      <strong>Exhibitor:</strong>
+                      <span>{resolved.name}</span>
+                    </div>
+                  )}
+                  <div className="fp-booth-detail-meta-item">
+                    <strong>Size:</strong>
+                    <span>{resolved.widthM}m × {resolved.heightM}m ({resolved.widthM * resolved.heightM} m²)</span>
+                  </div>
+                  <div className="fp-booth-detail-meta-item">
+                    <strong>Position:</strong>
+                    <span>Row {resolved.y + 1}, Col {resolved.x + 1}</span>
+                  </div>
+                  <div className="fp-booth-detail-meta-item">
+                    <strong>Color:</strong>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <span style={{ width: '14px', height: '14px', borderRadius: '4px', background: resolved.color, display: 'inline-block', border: '1px solid rgba(0,0,0,0.1)' }} />
+                      {resolved.color}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
       </div>
     </div>
   );
