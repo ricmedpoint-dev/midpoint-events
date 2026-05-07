@@ -194,7 +194,6 @@ export default function FloorPlanViewer({ isOpen, onClose, eventId, sponsorTiers
     if (!gridAreaRef.current || !floorPlan) return;
     setIsExporting(true);
     try {
-      // Color helper
       const hexToRgb = (hex) => {
         const c = hex?.startsWith('#') ? hex.slice(1) : hex;
         if (c?.length !== 6) return { r: 227, g: 30, b: 36 }; 
@@ -206,7 +205,6 @@ export default function FloorPlanViewer({ isOpen, onClose, eventId, sponsorTiers
       };
       const hColor = hexToRgb(event?.eventColor || '#E31E24');
 
-      // 1. Setup PDF Orientation based on Floor Plan aspect ratio
       const totalW = (Number(floorPlan.width) || 10) * CELL_SIZE + GATE_PADDING * 2;
       const totalH = (Number(floorPlan.height) || 10) * CELL_SIZE + GATE_PADDING * 2;
       const orientation = totalW > totalH ? 'l' : 'p';
@@ -217,35 +215,28 @@ export default function FloorPlanViewer({ isOpen, onClose, eventId, sponsorTiers
       const margin = 15;
       const contentWidth = pageWidth - (margin * 2);
 
-      // ── Page 1 Header ──
-      pdf.setFillColor(hColor.r, hColor.g, hColor.b); 
-      pdf.rect(0, 0, pageWidth, 25, 'F');
-      
-      pdf.setTextColor(255, 255, 255);
-      pdf.setFontSize(18);
-      pdf.setFont('helvetica', 'bold');
-      pdf.text(event?.title || 'Event Floor Plan', margin, 12);
-      
-      pdf.setFontSize(10);
-      pdf.setFont('helvetica', 'normal');
-      pdf.text(`${event?.date || ''} | ${event?.location || ''}`, margin, 18);
-      
-      pdf.setFontSize(12);
-      pdf.text('OFFICIAL FLOOR PLAN', pageWidth - margin, 15, { align: 'right' });
+      // Helper to add header/footer
+      const addPageDecorativeElements = (p, title = event?.title || 'Event Floor Plan') => {
+        p.setFillColor(hColor.r, hColor.g, hColor.b); 
+        p.rect(0, 0, pageWidth, 25, 'F');
+        p.setTextColor(255, 255, 255);
+        p.setFontSize(18);
+        p.setFont('helvetica', 'bold');
+        p.text(title, margin, 12);
+        p.setFontSize(10);
+        p.setFont('helvetica', 'normal');
+        p.text(`${event?.date || ''} | ${event?.location || ''}`, margin, 18);
+        p.setFontSize(12);
+        p.text('OFFICIAL DOCUMENT', pageWidth - margin, 15, { align: 'right' });
 
-      // Add Logo to Header if available
-      if (event?.image || event?.mediaUrl) {
-        try {
-          const logoImg = await loadImage(event.image || event.mediaUrl);
-          // Small square logo on the right side of header
-          pdf.addImage(logoImg, 'PNG', pageWidth - margin - 50, 4, 16, 16);
-        } catch (e) {
-          console.warn('Could not load event logo for PDF');
-        }
-      }
+        p.setFontSize(8);
+        p.setTextColor(150, 150, 150);
+        p.text(`Generated on ${new Date().toLocaleDateString()} | Midpoint Events`, pageWidth / 2, pageHeight - 8, { align: 'center' });
+      };
 
-      // ── Capture Floor Plan ──
-      // Use onclone to reset transforms and capture the FULL grid
+      // ── Page 1: Floor Plan ──
+      addPageDecorativeElements(pdf);
+
       const canvas = await html2canvas(gridAreaRef.current, {
         useCORS: true,
         scale: 2,
@@ -257,13 +248,11 @@ export default function FloorPlanViewer({ isOpen, onClose, eventId, sponsorTiers
             wrapper.style.position = 'static';
             wrapper.style.margin = '0';
             wrapper.style.padding = `${GATE_PADDING}px`;
-            
             const area = clonedDoc.querySelector('.fp-grid-area');
             if (area) {
               area.style.width = `${totalW}px`;
               area.style.height = `${totalH}px`;
               area.style.display = 'block';
-              area.style.overflow = 'visible';
               area.style.background = '#ffffff';
             }
           }
@@ -271,91 +260,78 @@ export default function FloorPlanViewer({ isOpen, onClose, eventId, sponsorTiers
       });
 
       const imgData = canvas.toDataURL('image/png');
-      const availableHeight = pageHeight - 45; // Space below header and above footer
-      
-      // Calculate dimensions to fit in available space while maintaining aspect ratio
+      const availableHeight = pageHeight - 45; 
       let fitW = contentWidth;
       let fitH = (canvas.height * fitW) / canvas.width;
-      
       if (fitH > availableHeight) {
         fitH = availableHeight;
         fitW = (canvas.width * fitH) / canvas.height;
       }
-      
-      const x = (pageWidth - fitW) / 2;
-      const y = 30 + (availableHeight - fitH) / 2;
-      
-      pdf.addImage(imgData, 'PNG', x, y, fitW, fitH);
+      pdf.addImage(imgData, 'PNG', (pageWidth - fitW) / 2, 30 + (availableHeight - fitH) / 2, fitW, fitH);
 
-      // ── Page 1 Footer ──
-      pdf.setFontSize(8);
-      pdf.setTextColor(150, 150, 150);
-      pdf.text(`Generated on ${new Date().toLocaleDateString()} | Midpoint Events Floor Plan Viewer`, pageWidth / 2, pageHeight - 8, { align: 'center' });
+      // ── Page 2+: Directory ──
+      const directoryEl = document.querySelector('.fp-directory');
+      if (directoryEl) {
+        const dirCanvas = await html2canvas(directoryEl, {
+          useCORS: true,
+          scale: 2,
+          backgroundColor: '#ffffff',
+          width: 1200,
+          windowWidth: 1400,
+          onclone: (clonedDoc) => {
+            const header = clonedDoc.querySelector('.fp-directory-header');
+            if (header) header.style.display = 'none';
 
-      // ── Directory Pages ──
-      pdf.addPage('p', 'mm', 'a4');
-      const dirPageWidth = pdf.internal.pageSize.getWidth();
-      const dirPageHeight = pdf.internal.pageSize.getHeight();
-      
-      // Header for Directory
-      pdf.setFillColor(hColor.r, hColor.g, hColor.b);
-      pdf.rect(0, 0, dirPageWidth, 20, 'F');
-      pdf.setTextColor(255, 255, 255);
-      pdf.setFontSize(14);
-      pdf.setFont('helvetica', 'bold');
-      pdf.text('Exhibitor Directory', margin, 13);
-      
-      pdf.setTextColor(26, 26, 46);
-      pdf.setFontSize(11);
-      
-      const sortedBooths = [...(floorPlan.booths || [])]
-        .map(resolveBoothData)
-        .sort((a, b) => 
-          a.boothNumber.localeCompare(b.boothNumber, undefined, { numeric: true })
-        );
-
-      let yPos = 35;
-      for (const b of sortedBooths) {
-        if (yPos > dirPageHeight - 20) {
-          pdf.addPage('p', 'mm', 'a4');
-          // Re-add header on new page
-          pdf.setFillColor(hColor.r, hColor.g, hColor.b);
-          pdf.rect(0, 0, dirPageWidth, 20, 'F');
-          pdf.setTextColor(255, 255, 255);
-          pdf.setFontSize(14);
-          pdf.setFont('helvetica', 'bold');
-          pdf.text('Exhibitor Directory (continued)', margin, 13);
-          pdf.setTextColor(26, 26, 46);
-          pdf.setFontSize(11);
-          yPos = 35;
-        }
-
-        // Add logo if exists
-        if (b.logo) {
-          try {
-            const img = await loadImage(b.logo);
-            const imgProps = pdf.getImageProperties(img);
-            const maxL = 10;
-            let lW = maxL;
-            let lH = (imgProps.height * lW) / imgProps.width;
-            if (lH > maxL) {
-              lH = maxL;
-              lW = (imgProps.width * lH) / imgProps.height;
+            const dir = clonedDoc.querySelector('.fp-directory');
+            if (dir) {
+              dir.style.width = '1200px';
+              dir.style.maxWidth = 'none';
+              dir.style.padding = '40px';
             }
-            // Center the contained image within the 10x10 space
-            const lX = margin + (maxL - lW) / 2;
-            const lY = yPos - (lH / 2) - 3.5; 
-            pdf.addImage(img, 'PNG', lX, lY, lW, lH);
-          } catch (err) {
-            // Silently skip if logo fails
-          }
-        }
 
-        pdf.setFont('helvetica', 'bold');
-        pdf.text(`${b.boothNumber}`, margin + 14, yPos);
-        pdf.setFont('helvetica', 'normal');
-        pdf.text(` - ${b.name}`, margin + 28, yPos);
-        yPos += 14;
+            // Fix logos
+            clonedDoc.querySelectorAll('.fp-directory-card-logo img').forEach(img => {
+              img.style.objectFit = 'contain';
+              img.style.width = '100%';
+              img.style.height = '100%';
+            });
+          }
+        });
+
+        const dirImgData = dirCanvas.toDataURL('image/png');
+        const dirW = contentWidth;
+        const dirH = (dirCanvas.height * dirW) / dirCanvas.width;
+        
+        // Split directory into pages if needed
+        const pageContentHeight = pageHeight - 50; // Space for header/footer
+        let remainingHeight = dirH;
+        let sourceY = 0;
+        let pageNum = 0;
+
+        while (remainingHeight > 0) {
+          if (pageNum > 0 || remainingHeight > 0) pdf.addPage('p', 'mm', 'a4');
+          addPageDecorativeElements(pdf, 'Exhibitor Directory');
+          
+          const sliceHeight = Math.min(remainingHeight, pageContentHeight);
+          
+          // Use addImage with coordinate clipping if possible, or just add the whole image and clip it manually
+          // jsPDF addImage(data, format, x, y, w, h, alias, compression, rotation)
+          // We can't easily clip source in jsPDF, so we'll use a white rectangle to hide the overflow or 
+          // better: use canvas to crop before adding.
+          
+          const cropCanvas = document.createElement('canvas');
+          cropCanvas.width = dirCanvas.width;
+          cropCanvas.height = (sliceHeight * dirCanvas.width) / dirW;
+          const ctx = cropCanvas.getContext('2d');
+          ctx.drawImage(dirCanvas, 0, sourceY * (dirCanvas.width / dirW), dirCanvas.width, cropCanvas.height, 0, 0, dirCanvas.width, cropCanvas.height);
+          
+          const cropData = cropCanvas.toDataURL('image/png');
+          pdf.addImage(cropData, 'PNG', margin, 30, dirW, sliceHeight);
+
+          remainingHeight -= sliceHeight;
+          sourceY += sliceHeight;
+          pageNum++;
+        }
       }
 
       pdf.save(`${(event?.title || 'FloorPlan').replace(/\s+/g, '_')}_${eventId}.pdf`);
@@ -495,45 +471,66 @@ export default function FloorPlanViewer({ isOpen, onClose, eventId, sponsorTiers
                     const isEntrance = gate.type === 'entrance';
                     const color = isEntrance ? '#10B981' : '#EF4444';
                     const gateW = gate.widthM * CELL_SIZE;
+                    const depth = gate.depthPosition || 'inside';
+                    
+                    let offsetPx = 0;
+                    if (depth === 'centered') offsetPx = CELL_SIZE / 2;
+                    else if (depth === 'outside') offsetPx = CELL_SIZE;
+
                     let style = {};
                     let arrowStyle = {};
+
+                    const ARROW_W = 12;
+                    const ARROW_H = 16;
 
                     if (gate.side === 'top') {
                       style = {
                         position: 'absolute',
                         left: `${GATE_PADDING + gate.position * CELL_SIZE}px`,
-                        top: '0px',
+                        top: `${-offsetPx}px`,
                         width: `${gateW}px`,
                         height: `${GATE_PADDING - 4}px`,
                       };
-                      arrowStyle = { borderBottom: `8px solid ${color}`, borderLeft: '6px solid transparent', borderRight: '6px solid transparent' };
+                      // Entrance: Down (borderTop), Exit: Up (borderBottom)
+                      arrowStyle = isEntrance 
+                        ? { borderTop: `${ARROW_H}px solid ${color}`, borderLeft: `${ARROW_W}px solid transparent`, borderRight: `${ARROW_W}px solid transparent` }
+                        : { borderBottom: `${ARROW_H}px solid ${color}`, borderLeft: `${ARROW_W}px solid transparent`, borderRight: `${ARROW_W}px solid transparent` };
                     } else if (gate.side === 'bottom') {
                       style = {
                         position: 'absolute',
                         left: `${GATE_PADDING + gate.position * CELL_SIZE}px`,
-                        bottom: '0px',
+                        bottom: `${-offsetPx}px`,
                         width: `${gateW}px`,
                         height: `${GATE_PADDING - 4}px`,
                       };
-                      arrowStyle = { borderTop: `8px solid ${color}`, borderLeft: '6px solid transparent', borderRight: '6px solid transparent' };
+                      // Entrance: Up (borderBottom), Exit: Down (borderTop)
+                      arrowStyle = isEntrance
+                        ? { borderBottom: `${ARROW_H}px solid ${color}`, borderLeft: `${ARROW_W}px solid transparent`, borderRight: `${ARROW_W}px solid transparent` }
+                        : { borderTop: `${ARROW_H}px solid ${color}`, borderLeft: `${ARROW_W}px solid transparent`, borderRight: `${ARROW_W}px solid transparent` };
                     } else if (gate.side === 'left') {
                       style = {
                         position: 'absolute',
-                        left: '0px',
+                        left: `${-offsetPx}px`,
                         top: `${GATE_PADDING + gate.position * CELL_SIZE}px`,
                         width: `${GATE_PADDING - 4}px`,
                         height: `${gateW}px`,
                       };
-                      arrowStyle = { borderRight: `8px solid ${color}`, borderTop: '6px solid transparent', borderBottom: '6px solid transparent' };
+                      // Entrance: Right (borderLeft), Exit: Left (borderRight)
+                      arrowStyle = isEntrance
+                        ? { borderLeft: `${ARROW_H}px solid ${color}`, borderTop: `${ARROW_W}px solid transparent`, borderBottom: `${ARROW_W}px solid transparent` }
+                        : { borderRight: `${ARROW_H}px solid ${color}`, borderTop: `${ARROW_W}px solid transparent`, borderBottom: `${ARROW_W}px solid transparent` };
                     } else {
                       style = {
                         position: 'absolute',
-                        right: '0px',
+                        right: `${-offsetPx}px`,
                         top: `${GATE_PADDING + gate.position * CELL_SIZE}px`,
                         width: `${GATE_PADDING - 4}px`,
                         height: `${gateW}px`,
                       };
-                      arrowStyle = { borderLeft: `8px solid ${color}`, borderTop: '6px solid transparent', borderBottom: '6px solid transparent' };
+                      // Entrance: Left (borderRight), Exit: Right (borderLeft)
+                      arrowStyle = isEntrance
+                        ? { borderRight: `${ARROW_H}px solid ${color}`, borderTop: `${ARROW_W}px solid transparent`, borderBottom: `${ARROW_W}px solid transparent` }
+                        : { borderLeft: `${ARROW_H}px solid ${color}`, borderTop: `${ARROW_W}px solid transparent`, borderBottom: `${ARROW_W}px solid transparent` };
                     }
 
                     return (
@@ -555,6 +552,37 @@ export default function FloorPlanViewer({ isOpen, onClose, eventId, sponsorTiers
                       height: `${gridPxH}px`,
                     }}
                   >
+                    {/* Gate 1m Visual Blocks */}
+                    {(floorPlan.gates || []).map(gate => {
+                      const isEntrance = gate.type === 'entrance';
+                      const gateW = gate.widthM * CELL_SIZE;
+                      const depth = gate.depthPosition || 'inside';
+                      let blockStyle = {};
+
+                      let offsetPx = 0;
+                      if (depth === 'centered') offsetPx = -CELL_SIZE / 2;
+                      else if (depth === 'outside') offsetPx = -CELL_SIZE;
+
+                      if (gate.side === 'top') {
+                        blockStyle = { left: `${gate.position * CELL_SIZE}px`, top: `${offsetPx}px`, width: `${gateW}px`, height: `${CELL_SIZE}px` };
+                      } else if (gate.side === 'bottom') {
+                        blockStyle = { left: `${gate.position * CELL_SIZE}px`, bottom: `${offsetPx}px`, width: `${gateW}px`, height: `${CELL_SIZE}px` };
+                      } else if (gate.side === 'left') {
+                        blockStyle = { left: `${offsetPx}px`, top: `${gate.position * CELL_SIZE}px`, width: `${CELL_SIZE}px`, height: `${gateW}px` };
+                      } else {
+                        blockStyle = { right: `${offsetPx}px`, top: `${gate.position * CELL_SIZE}px`, width: `${CELL_SIZE}px`, height: `${gateW}px` };
+                      }
+
+                      return (
+                        <div 
+                          key={`gate-block-${gate.id}`} 
+                          className={`fp-gate-block ${!isEntrance ? 'is-exit' : ''}`}
+                          style={blockStyle}
+                        >
+                          {gate.widthM}m
+                        </div>
+                      );
+                    })}
                     {/* Horizontal grid lines */}
                     <div className="fp-grid-lines-h">
                       {Array.from({ length: gridHeight - 1 }, (_, i) => (
