@@ -25,7 +25,7 @@ export default function FloorPlanViewer({ isOpen, onClose, eventId, sponsorTiers
   const resolveBoothData = useCallback((booth) => {
     // 1. Try to find exhibitor by ID (best way)
     let exhibitor = booth.exhibitorId ? exhibitors.find(ex => ex.id === booth.exhibitorId) : null;
-    
+
     // 2. If not found by ID, try matching by name (migration for existing data)
     if (!exhibitor && booth.name && booth.name !== 'Available' && booth.name !== 'TBD') {
       exhibitor = exhibitors.find(ex => ex.name === booth.name);
@@ -40,7 +40,7 @@ export default function FloorPlanViewer({ isOpen, onClose, eventId, sponsorTiers
         exhibitorId: exhibitor.id // Ensure ID is present for future
       };
     }
-    
+
     // 3. If it HAD an exhibitorId but no exhibitor was found, it was deleted
     if (booth.exhibitorId) {
       return {
@@ -51,7 +51,7 @@ export default function FloorPlanViewer({ isOpen, onClose, eventId, sponsorTiers
         color: '#f1f3f5'
       };
     }
-    
+
     return booth;
   }, [exhibitors]);
   const [floorPlan, setFloorPlan] = useState(null);
@@ -93,7 +93,7 @@ export default function FloorPlanViewer({ isOpen, onClose, eventId, sponsorTiers
     const scaleX = (areaRect.width - 60) / totalW;
     const scaleY = (areaRect.height - 60) / totalH;
     let fitScale = Math.min(scaleX, scaleY, 1.5);
-    
+
     if (isNaN(fitScale) || !isFinite(fitScale)) fitScale = 1;
 
     setZoom(Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, fitScale)));
@@ -162,30 +162,30 @@ export default function FloorPlanViewer({ isOpen, onClose, eventId, sponsorTiers
 
   const handleFocusBooth = useCallback((booth) => {
     if (!gridAreaRef.current || !floorPlan) return;
-    
+
     setFocusedBoothId(booth.id);
-    
+
     // Calculate total wrapper size including padding
     const totalW = floorPlan.width * CELL_SIZE + GATE_PADDING * 2;
     const totalH = floorPlan.height * CELL_SIZE + GATE_PADDING * 2;
-    
+
     // Wrapper center in its own coordinate system
     const wrapperCenterX = totalW / 2;
     const wrapperCenterY = totalH / 2;
-    
+
     // Booth center in wrapper coordinate system
     const boothCenterX = (booth.x + booth.widthM / 2) * CELL_SIZE + GATE_PADDING;
     const boothCenterY = (booth.y + booth.heightM / 2) * CELL_SIZE + GATE_PADDING;
 
     const newZoom = 0.5;
     setZoom(newZoom);
-    
+
     // Pan is the offset from the "natural" centered position
     setPan({
       x: (wrapperCenterX - boothCenterX) * newZoom,
       y: (wrapperCenterY - boothCenterY) * newZoom
     });
-    
+
     const modalBody = document.querySelector('.fp-body');
     if (modalBody) modalBody.scrollTo({ top: 0, behavior: 'smooth' });
   }, [floorPlan]);
@@ -196,7 +196,7 @@ export default function FloorPlanViewer({ isOpen, onClose, eventId, sponsorTiers
     try {
       const hexToRgb = (hex) => {
         const c = hex?.startsWith('#') ? hex.slice(1) : hex;
-        if (c?.length !== 6) return { r: 227, g: 30, b: 36 }; 
+        if (c?.length !== 6) return { r: 227, g: 30, b: 36 };
         return {
           r: parseInt(c.slice(0, 2), 16),
           g: parseInt(c.slice(2, 4), 16),
@@ -208,7 +208,7 @@ export default function FloorPlanViewer({ isOpen, onClose, eventId, sponsorTiers
       const totalW = (Number(floorPlan.width) || 10) * CELL_SIZE + GATE_PADDING * 2;
       const totalH = (Number(floorPlan.height) || 10) * CELL_SIZE + GATE_PADDING * 2;
       const orientation = totalW > totalH ? 'l' : 'p';
-      
+
       const pdf = new jsPDF(orientation, 'mm', 'a4');
       const pageWidth = pdf.internal.pageSize.getWidth();
       const pageHeight = pdf.internal.pageSize.getHeight();
@@ -217,7 +217,7 @@ export default function FloorPlanViewer({ isOpen, onClose, eventId, sponsorTiers
 
       // Helper to add header/footer
       const addPageDecorativeElements = (p, title = event?.title || 'Event Floor Plan') => {
-        p.setFillColor(hColor.r, hColor.g, hColor.b); 
+        p.setFillColor(hColor.r, hColor.g, hColor.b);
         p.rect(0, 0, pageWidth, 25, 'F');
         p.setTextColor(255, 255, 255);
         p.setFontSize(18);
@@ -227,7 +227,7 @@ export default function FloorPlanViewer({ isOpen, onClose, eventId, sponsorTiers
         p.setFont('helvetica', 'normal');
         p.text(`${event?.date || ''} | ${event?.location || ''}`, margin, 18);
         p.setFontSize(12);
-        p.text('OFFICIAL DOCUMENT', pageWidth - margin, 15, { align: 'right' });
+        p.text('FLOOR PLAN', pageWidth - margin, 15, { align: 'right' });
 
         p.setFontSize(8);
         p.setTextColor(150, 150, 150);
@@ -248,6 +248,7 @@ export default function FloorPlanViewer({ isOpen, onClose, eventId, sponsorTiers
             wrapper.style.position = 'static';
             wrapper.style.margin = '0';
             wrapper.style.padding = `${GATE_PADDING}px`;
+            wrapper.style.overflow = 'visible';
             const area = clonedDoc.querySelector('.fp-grid-area');
             if (area) {
               area.style.width = `${totalW}px`;
@@ -259,15 +260,22 @@ export default function FloorPlanViewer({ isOpen, onClose, eventId, sponsorTiers
             const grid = clonedDoc.querySelector('.fp-grid');
             if (grid) grid.style.overflow = 'visible';
           }
-          // Prevent booth text cropping
+          // Fix booth text cropping — target the ACTUAL text elements
           clonedDoc.querySelectorAll('.fp-booth').forEach(booth => {
             booth.style.overflow = 'visible';
+          });
+          clonedDoc.querySelectorAll('.fp-booth-name').forEach(name => {
+            name.style.overflow = 'visible';
+            name.style.textOverflow = 'unset';
+            name.style.whiteSpace = 'normal';
+            name.style.maxWidth = '100%';
+            name.style.wordBreak = 'break-word';
           });
         }
       });
 
       const imgData = canvas.toDataURL('image/png');
-      const availableHeight = pageHeight - 45; 
+      const availableHeight = pageHeight - 45;
       let fitW = contentWidth;
       let fitH = (canvas.height * fitW) / canvas.width;
       if (fitH > availableHeight) {
@@ -283,30 +291,61 @@ export default function FloorPlanViewer({ isOpen, onClose, eventId, sponsorTiers
           useCORS: true,
           scale: 2,
           backgroundColor: '#ffffff',
-          width: 1500, 
-          windowWidth: 1600,
+          windowWidth: 1400,
           onclone: (clonedDoc) => {
+            // Hide the interactive header
             const header = clonedDoc.querySelector('.fp-directory-header');
             if (header) header.style.display = 'none';
 
+            // Set directory to a fixed width that fits well in PDF
             const dir = clonedDoc.querySelector('.fp-directory');
             if (dir) {
-              dir.style.width = '1400px'; // Set a wider width for the directory itself
+              dir.style.width = '1200px';
               dir.style.maxWidth = 'none';
               dir.style.padding = '20px';
               dir.style.margin = '0';
               dir.style.overflow = 'visible';
-              dir.style.zoom = '0.75'; // Scale down the whole directory to fit comfortably in PDF width
             }
 
-            // Fix logos and prevent stretching
+            // Fix the grid to use fixed 3 columns instead of auto-fill
+            const dirGrid = clonedDoc.querySelector('.fp-directory-grid');
+            if (dirGrid) {
+              dirGrid.style.display = 'grid';
+              dirGrid.style.gridTemplateColumns = 'repeat(3, 1fr)';
+              dirGrid.style.gap = '12px';
+              dirGrid.style.maxWidth = 'none';
+              dirGrid.style.width = '100%';
+            }
+
+            // Fix card names — remove truncation for PDF
+            clonedDoc.querySelectorAll('.fp-directory-card-name').forEach(name => {
+              name.style.overflow = 'visible';
+              name.style.textOverflow = 'unset';
+              name.style.whiteSpace = 'normal';
+              name.style.wordBreak = 'break-word';
+              name.style.fontSize = '0.8rem';
+            });
+
+            // Fix card info to allow wrapping
+            clonedDoc.querySelectorAll('.fp-directory-card-info').forEach(info => {
+              info.style.overflow = 'visible';
+              info.style.minWidth = '0';
+              info.style.flex = '1';
+            });
+
+            // Fix cards to not overflow
+            clonedDoc.querySelectorAll('.fp-directory-card').forEach(card => {
+              card.style.overflow = 'visible';
+            });
+
+            // Fix logos — prevent stretching
             clonedDoc.querySelectorAll('.fp-directory-card-logo').forEach(container => {
               container.style.display = 'flex';
               container.style.alignItems = 'center';
               container.style.justifyContent = 'center';
               container.style.background = '#fff';
-              container.style.overflow = 'visible';
-              
+              container.style.flexShrink = '0';
+
               const img = container.querySelector('img');
               if (img) {
                 img.style.maxWidth = '100%';
@@ -323,7 +362,7 @@ export default function FloorPlanViewer({ isOpen, onClose, eventId, sponsorTiers
         const dirImgData = dirCanvas.toDataURL('image/png');
         const dirW = contentWidth;
         const dirH = (dirCanvas.height * dirW) / dirCanvas.width;
-        
+
         // Split directory into pages if needed
         const pageContentHeight = pageHeight - 50; // Space for header/footer
         let remainingHeight = dirH;
@@ -333,20 +372,15 @@ export default function FloorPlanViewer({ isOpen, onClose, eventId, sponsorTiers
         while (remainingHeight > 0) {
           if (pageNum > 0 || remainingHeight > 0) pdf.addPage('p', 'mm', 'a4');
           addPageDecorativeElements(pdf, 'Exhibitor Directory');
-          
+
           const sliceHeight = Math.min(remainingHeight, pageContentHeight);
-          
-          // Use addImage with coordinate clipping if possible, or just add the whole image and clip it manually
-          // jsPDF addImage(data, format, x, y, w, h, alias, compression, rotation)
-          // We can't easily clip source in jsPDF, so we'll use a white rectangle to hide the overflow or 
-          // better: use canvas to crop before adding.
-          
+
           const cropCanvas = document.createElement('canvas');
           cropCanvas.width = dirCanvas.width;
           cropCanvas.height = (sliceHeight * dirCanvas.width) / dirW;
           const ctx = cropCanvas.getContext('2d');
           ctx.drawImage(dirCanvas, 0, sourceY * (dirCanvas.width / dirW), dirCanvas.width, cropCanvas.height, 0, 0, dirCanvas.width, cropCanvas.height);
-          
+
           const cropData = cropCanvas.toDataURL('image/png');
           pdf.addImage(cropData, 'PNG', margin, 30, dirW, sliceHeight);
 
@@ -388,7 +422,7 @@ export default function FloorPlanViewer({ isOpen, onClose, eventId, sponsorTiers
       const dx = e.touches[0].clientX - e.touches[1].clientX;
       const dy = e.touches[0].clientY - e.touches[1].clientY;
       const dist = Math.hypot(dx, dy);
-      
+
       if (pinchStartDist.current > 0) {
         const scale = dist / pinchStartDist.current;
         const nextZoom = pinchStartZoom.current * scale;
@@ -441,8 +475,8 @@ export default function FloorPlanViewer({ isOpen, onClose, eventId, sponsorTiers
             )}
           </div>
           <div className="fp-topbar-actions">
-            <button 
-              className="fp-btn fp-btn-secondary" 
+            <button
+              className="fp-btn fp-btn-secondary"
               onClick={handleExportPDF}
               disabled={isExporting}
               style={{ marginRight: '8px' }}
@@ -473,7 +507,7 @@ export default function FloorPlanViewer({ isOpen, onClose, eventId, sponsorTiers
                 className="fp-grid-area"
                 ref={gridAreaRef}
                 onPointerDown={handlePointerDown}
-                style={{ 
+                style={{
                   cursor: isPanning ? 'grabbing' : 'grab',
                   touchAction: 'none'
                 }}
@@ -494,7 +528,7 @@ export default function FloorPlanViewer({ isOpen, onClose, eventId, sponsorTiers
                     const color = isEntrance ? '#10B981' : '#EF4444';
                     const gateW = gate.widthM * CELL_SIZE;
                     const depth = gate.depthPosition || 'inside';
-                    
+
                     let offsetPx = 0;
                     if (depth === 'centered') offsetPx = CELL_SIZE / 2;
                     else if (depth === 'outside') offsetPx = CELL_SIZE;
@@ -514,7 +548,7 @@ export default function FloorPlanViewer({ isOpen, onClose, eventId, sponsorTiers
                         height: `${GATE_PADDING - 4}px`,
                       };
                       // Entrance: Down (borderTop), Exit: Up (borderBottom)
-                      arrowStyle = isEntrance 
+                      arrowStyle = isEntrance
                         ? { borderTop: `${ARROW_H}px solid ${color}`, borderLeft: `${ARROW_W}px solid transparent`, borderRight: `${ARROW_W}px solid transparent` }
                         : { borderBottom: `${ARROW_H}px solid ${color}`, borderLeft: `${ARROW_W}px solid transparent`, borderRight: `${ARROW_W}px solid transparent` };
                     } else if (gate.side === 'bottom') {
@@ -596,8 +630,8 @@ export default function FloorPlanViewer({ isOpen, onClose, eventId, sponsorTiers
                       }
 
                       return (
-                        <div 
-                          key={`gate-block-${gate.id}`} 
+                        <div
+                          key={`gate-block-${gate.id}`}
                           className={`fp-gate-block ${!isEntrance ? 'is-exit' : ''}`}
                           style={blockStyle}
                         >
@@ -655,7 +689,7 @@ export default function FloorPlanViewer({ isOpen, onClose, eventId, sponsorTiers
 
                     {/* Booths */}
                     {booths.map(booth => (
-                      <Booth 
+                      <Booth
                         key={booth.id}
                         booth={booth}
                         onDetail={setDetailBooth}
@@ -682,8 +716,8 @@ export default function FloorPlanViewer({ isOpen, onClose, eventId, sponsorTiers
                   {booths
                     .sort((a, b) => a.boothNumber.localeCompare(b.boothNumber, undefined, { numeric: true }))
                     .map(b => (
-                      <div 
-                        key={b.id} 
+                      <div
+                        key={b.id}
                         className="fp-directory-card"
                         onClick={() => handleFocusBooth(b)}
                       >
@@ -729,15 +763,15 @@ export default function FloorPlanViewer({ isOpen, onClose, eventId, sponsorTiers
                   <X size={16} />
                 </button>
                 {resolved.sponsorType && (
-                  <div 
-                    className="fp-booth-detail-tier" 
-                    style={{ 
-                      color: sponsorTiers.find(t => t.label === resolved.sponsorType)?.color || resolved.color, 
-                      fontWeight: 800, 
-                      fontSize: '0.85rem', 
-                      marginBottom: '8px', 
-                      textTransform: 'uppercase', 
-                      letterSpacing: '0.5px' 
+                  <div
+                    className="fp-booth-detail-tier"
+                    style={{
+                      color: sponsorTiers.find(t => t.label === resolved.sponsorType)?.color || resolved.color,
+                      fontWeight: 800,
+                      fontSize: '0.85rem',
+                      marginBottom: '8px',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.5px'
                     }}
                   >
                     {resolved.sponsorType.replace(/\/s$/, '')}
@@ -752,7 +786,7 @@ export default function FloorPlanViewer({ isOpen, onClose, eventId, sponsorTiers
 
                 <h3>{resolved.name}</h3>
                 <div className="fp-booth-detail-number">Booth {resolved.boothNumber}</div>
-                
+
                 <div className="fp-booth-detail-meta">
                   {resolved.name !== 'Available' && resolved.name !== 'TBD' && (
                     <div className="fp-booth-detail-meta-item">
