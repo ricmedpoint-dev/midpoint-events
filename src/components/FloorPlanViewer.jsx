@@ -274,7 +274,7 @@ export default function FloorPlanViewer({ isOpen, onClose, eventId, sponsorTiers
         }
       });
 
-      const imgData = canvas.toDataURL('image/png');
+      const imgData = canvas.toDataURL('image/jpeg', 0.92);
       const availableHeight = pageHeight - 45;
       let fitW = contentWidth;
       let fitH = (canvas.height * fitW) / canvas.width;
@@ -282,7 +282,7 @@ export default function FloorPlanViewer({ isOpen, onClose, eventId, sponsorTiers
         fitH = availableHeight;
         fitW = (canvas.width * fitH) / canvas.height;
       }
-      pdf.addImage(imgData, 'PNG', (pageWidth - fitW) / 2, 30 + (availableHeight - fitH) / 2, fitW, fitH);
+      pdf.addImage(imgData, 'JPEG', (pageWidth - fitW) / 2, 30 + (availableHeight - fitH) / 2, fitW, fitH);
 
       // ── Page 2+: Directory ──
       const directoryEl = document.querySelector('.fp-directory');
@@ -359,7 +359,7 @@ export default function FloorPlanViewer({ isOpen, onClose, eventId, sponsorTiers
           }
         });
 
-        const dirImgData = dirCanvas.toDataURL('image/png');
+        const dirImgData = dirCanvas.toDataURL('image/jpeg', 0.9);
         const dirW = contentWidth;
         const dirH = (dirCanvas.height * dirW) / dirCanvas.width;
 
@@ -381,8 +381,8 @@ export default function FloorPlanViewer({ isOpen, onClose, eventId, sponsorTiers
           const ctx = cropCanvas.getContext('2d');
           ctx.drawImage(dirCanvas, 0, sourceY * (dirCanvas.width / dirW), dirCanvas.width, cropCanvas.height, 0, 0, dirCanvas.width, cropCanvas.height);
 
-          const cropData = cropCanvas.toDataURL('image/png');
-          pdf.addImage(cropData, 'PNG', margin, 30, dirW, sliceHeight);
+          const cropData = cropCanvas.toDataURL('image/jpeg', 0.9);
+          pdf.addImage(cropData, 'JPEG', margin, 30, dirW, sliceHeight);
 
           remainingHeight -= sliceHeight;
           sourceY += sliceHeight;
