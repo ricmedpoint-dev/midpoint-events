@@ -4,6 +4,7 @@ service cloud.firestore {
     // allow anyone to read events and about collections 
     match /events/{document=**} {
       allow read: if true;
+      allow write: if true;
     }
     match /banners/{document=**} {
       allow read: if true;

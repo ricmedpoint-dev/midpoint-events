@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { X, Save, Palette, ChevronUp, ChevronDown, Type, Plus, Trash2 } from 'lucide-react';
 import { db } from '../firebase/config';
-import { doc, updateDoc } from 'firebase/firestore';
+import { doc, updateDoc, getDoc } from 'firebase/firestore';
 
 const DEFAULT_TIERS = [
   { id: 'main', label: 'Main Sponsor', color: '#1d7dcc' },
@@ -59,7 +59,16 @@ export default function TierSettingsModal({ isOpen, onClose, event, onSaved }) {
     e.preventDefault();
     setIsSubmitting(true);
     try {
-      const eventRef = doc(db, 'banners', event.id);
+      let collectionName = event._collection;
+      
+      // Robust fallback if _collection is missing (e.g., from old cache)
+      if (!collectionName) {
+        // We know it's missing, let's try 'events' first
+        const eventDoc = await getDoc(doc(db, 'events', event.id));
+        collectionName = eventDoc.exists() ? 'events' : 'banners';
+      }
+
+      const eventRef = doc(db, collectionName, event.id);
       await updateDoc(eventRef, {
         sponsorTiers: tiers
       });

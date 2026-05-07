@@ -368,6 +368,24 @@ export default function EventDetail() {
               <span>{event.eventTime}</span>
             </div>
           )}
+          
+          <div style={{ marginTop: '20px' }}>
+            <button 
+              className="btn-register" 
+              onClick={() => setShowRegisterModal(true)}
+              style={{ 
+                '--btn-color': event?.eventColor || '#E31E24',
+                height: '40px',
+                fontSize: '0.8rem',
+                maxWidth: '220px',
+                padding: '0 16px',
+                margin: '0'
+              }}
+            >
+              <User size={16} />
+              <span>REGISTER FOR FREE</span>
+            </button>
+          </div>
         </div>
 
         <div className="detail-description">
@@ -394,6 +412,7 @@ export default function EventDetail() {
               <button 
                 className="fp-view-btn"
                 onClick={() => setShowFloorPlanViewer(true)}
+                style={{ background: `linear-gradient(135deg, ${event?.eventColor || '#E31E24'} 0%, ${event?.eventColor ? event.eventColor + 'cc' : '#b5181d'} 100%)` }}
               >
                 <Grid3X3 size={18} />
                 <span>View Floor Plan</span>
@@ -564,22 +583,6 @@ export default function EventDetail() {
           </div>
         </div>
  
-      </div>
- 
-      {/* Action Buttons - Snapped to bottom, matching card width */}
-      <div className="detail-actions">
-        <button 
-          className="btn-register" 
-          onClick={() => setShowRegisterModal(true)}
-          style={{ '--btn-color': event?.eventColor || '#E31E24' }}
-        >
-          <User size={18} />
-          <span>REGISTER FOR FREE</span>
-        </button>
-        <button className="btn-enquire" onClick={() => setShowEnquiryModal(true)}>
-          <MessageCircle size={18} />
-          <span>Enquire to Exhibit</span>
-        </button>
       </div>
  
       {/* Modals */}

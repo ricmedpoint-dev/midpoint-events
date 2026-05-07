@@ -58,6 +58,7 @@ export default function FloorPlanViewer({ isOpen, onClose, eventId, sponsorTiers
   const [loading, setLoading] = useState(true);
   const [detailBooth, setDetailBooth] = useState(null);
   const [isExporting, setIsExporting] = useState(false);
+  const [focusedBoothId, setFocusedBoothId] = useState(null);
 
   // Zoom/Pan
   const [zoom, setZoom] = useState(1);
@@ -109,6 +110,7 @@ export default function FloorPlanViewer({ isOpen, onClose, eventId, sponsorTiers
   // Pan handlers
   const handlePointerDown = useCallback((e) => {
     if (e.target.closest('.fp-booth')) return;
+    setFocusedBoothId(null);
     setIsPanning(true);
     panStart.current = {
       x: e.clientX,
@@ -160,6 +162,8 @@ export default function FloorPlanViewer({ isOpen, onClose, eventId, sponsorTiers
 
   const handleFocusBooth = useCallback((booth) => {
     if (!gridAreaRef.current || !floorPlan) return;
+    
+    setFocusedBoothId(booth.id);
     
     // Calculate total wrapper size including padding
     const totalW = floorPlan.width * CELL_SIZE + GATE_PADDING * 2;
@@ -605,6 +609,7 @@ export default function FloorPlanViewer({ isOpen, onClose, eventId, sponsorTiers
                         key={booth.id}
                         booth={booth}
                         onDetail={setDetailBooth}
+                        isFocused={focusedBoothId === booth.id}
                       />
                     ))}
                   </div>
@@ -741,14 +746,14 @@ function getContrastColor(hex) {
   return brightness > 155 ? '#1a1a2e' : '#ffffff';
 }
 
-const Booth = memo(({ booth, onDetail }) => {
+const Booth = memo(({ booth, onDetail, isFocused }) => {
   const bW = booth.widthM * CELL_SIZE;
   const bH = booth.heightM * CELL_SIZE;
   const textColor = getContrastColor(booth.color);
 
   return (
     <div
-      className="fp-booth"
+      className={`fp-booth ${isFocused ? 'is-focused' : ''}`}
       style={{
         left: `${booth.x * CELL_SIZE}px`,
         top: `${booth.y * CELL_SIZE}px`,
@@ -756,6 +761,9 @@ const Booth = memo(({ booth, onDetail }) => {
         height: `${bH}px`,
         background: booth.color,
         color: textColor,
+        boxShadow: isFocused ? '0 0 0 3px #ffffff, 0 0 0 6px var(--color-primary), 0 0 20px rgba(0,0,0,0.3)' : 'none',
+        zIndex: isFocused ? 50 : 1,
+        transition: 'all 0.3s ease'
       }}
       onClick={(e) => {
         e.stopPropagation();

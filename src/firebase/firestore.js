@@ -31,7 +31,7 @@ export async function getBanners() {
     orderBy('createdAt', 'desc')
   );
   const snap = await getDocs(q);
-  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  return snap.docs.map(d => ({ id: d.id, _collection: 'banners', ...d.data() }));
 }
 
 export async function addBanner(data) {
@@ -60,7 +60,7 @@ export async function deleteBanner(id) {
 export async function getEvents() {
   const q = query(collection(db, 'events'), orderBy('order', 'asc'));
   const snap = await getDocs(q);
-  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  return snap.docs.map(d => ({ id: d.id, _collection: 'events', ...d.data() }));
 }
 
 export async function getEventBySlug(slug) {
@@ -69,7 +69,7 @@ export async function getEventBySlug(slug) {
   const snapEvents = await getDocs(qEvents);
   if (!snapEvents.empty) {
     const d = snapEvents.docs[0];
-    return { id: d.id, ...d.data() };
+    return { id: d.id, _collection: 'events', ...d.data() };
   }
 
   // Then try banners collection (since they are treated as upcoming events)
@@ -84,7 +84,7 @@ export async function getEventBySlug(slug) {
   });
 
   if (banner) {
-    return { id: banner.id, slug, ...banner.data() };
+    return { id: banner.id, _collection: 'banners', slug, ...banner.data() };
   }
 
   return null;
