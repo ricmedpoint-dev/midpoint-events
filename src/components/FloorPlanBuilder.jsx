@@ -60,6 +60,7 @@ export default function FloorPlanBuilder({ isOpen, onClose, eventId, onSaved, ex
   const [booths, setBooths] = useState([]);
   const [selectedBoothId, setSelectedBoothId] = useState(null);
   const [editingBoothId, setEditingBoothId] = useState(null);
+  const [editingGateId, setEditingGateId] = useState(null);
   const [detailBooth, setDetailBooth] = useState(null);
 
   // Gates (Entrance/Exit)
@@ -69,7 +70,8 @@ export default function FloorPlanBuilder({ isOpen, onClose, eventId, onSaved, ex
     side: 'bottom',
     position: 0,
     widthM: 3,
-    label: 'Main Entrance'
+    label: 'Main Entrance',
+    depthPosition: 'inside'
   });
 
   // Add booth form
@@ -230,16 +232,54 @@ export default function FloorPlanBuilder({ isOpen, onClose, eventId, onSaved, ex
     e.preventDefault();
     const maxLen = (newGate.side === 'top' || newGate.side === 'bottom') ? gridWidth : gridHeight;
     const pos = Math.max(0, Math.min(maxLen - (parseInt(newGate.widthM) || 1), parseInt(newGate.position) || 0));
-    const gate = {
-      id: 'gate-' + Math.random().toString(36).substr(2, 9),
-      type: newGate.type,
-      side: newGate.side,
-      position: pos,
-      widthM: Math.max(1, Math.min(maxLen, parseInt(newGate.widthM) || 1)),
-      label: newGate.label.trim() || (newGate.type === 'entrance' ? 'Entrance' : 'Exit')
-    };
-    setGates(prev => [...prev, gate]);
-    setNewGate({ type: 'entrance', side: 'bottom', position: 0, widthM: 3, label: '' });
+    
+    if (editingGateId) {
+      setGates(prev => prev.map(g => {
+        if (g.id !== editingGateId) return g;
+        return {
+          ...g,
+          type: newGate.type,
+          side: newGate.side,
+          position: pos,
+          widthM: Math.max(1, Math.min(maxLen, parseInt(newGate.widthM) || 1)),
+          label: newGate.label.trim() || (newGate.type === 'entrance' ? 'Entrance' : 'Exit'),
+          depthPosition: newGate.depthPosition || 'inside'
+        };
+      }));
+      setEditingGateId(null);
+    } else {
+      const gate = {
+        id: 'gate-' + Math.random().toString(36).substr(2, 9),
+        type: newGate.type,
+        side: newGate.side,
+        position: pos,
+        widthM: Math.max(1, Math.min(maxLen, parseInt(newGate.widthM) || 1)),
+        label: newGate.label.trim() || (newGate.type === 'entrance' ? 'Entrance' : 'Exit'),
+        depthPosition: newGate.depthPosition || 'inside'
+      };
+      setGates(prev => [...prev, gate]);
+    }
+    setNewGate({ type: 'entrance', side: 'bottom', position: 0, widthM: 3, label: '', depthPosition: 'inside' });
+  };
+
+  const handleEditGate = (gate) => {
+    setEditingGateId(gate.id);
+    setNewGate({
+      type: gate.type,
+      side: gate.side,
+      position: gate.position,
+      widthM: gate.widthM,
+      label: gate.label,
+      depthPosition: gate.depthPosition || 'inside'
+    });
+    // Scroll to form
+    const form = document.querySelectorAll('.fp-add-booth-form')[1]; // Second form is gate form
+    if (form) form.scrollIntoView({ behavior: 'smooth', block: 'end' });
+  };
+
+  const handleCancelGateEdit = () => {
+    setEditingGateId(null);
+    setNewGate({ type: 'entrance', side: 'bottom', position: 0, widthM: 3, label: '', depthPosition: 'inside' });
   };
 
   const handleDeleteGate = (id) => {
@@ -834,6 +874,12 @@ export default function FloorPlanBuilder({ isOpen, onClose, eventId, onSaved, ex
                         <div className="fp-booth-item-size">{g.widthM}m</div>
                         <div className="fp-booth-item-actions">
                           <button
+                            onClick={(e) => { e.stopPropagation(); handleEditGate(g); }}
+                            title="Edit Gate"
+                          >
+                            <Edit2 size={14} />
+                          </button>
+                          <button
                             onClick={(e) => { e.stopPropagation(); handleDeleteGate(g.id); }}
                             title="Delete"
                           >
@@ -944,8 +990,8 @@ export default function FloorPlanBuilder({ isOpen, onClose, eventId, onSaved, ex
               {/* Add Entrance/Exit Form */}
               <form className="fp-add-booth-form" onSubmit={handleAddGate} style={{ borderTop: '1px solid #e5e7eb' }}>
                 <h4>
-                  <DoorOpen size={14} style={{ marginRight: '6px' }} />
-                  Add Entrance / Exit
+                  {editingGateId ? <Edit2 size={14} style={{ marginRight: '6px' }} /> : <DoorOpen size={14} style={{ marginRight: '6px' }} />}
+                  {editingGateId ? 'Update Entrance / Exit' : 'Add Entrance / Exit'}
                 </h4>
                 <div className="fp-form-row">
                   <div className="fp-input-group">
@@ -1001,11 +1047,28 @@ export default function FloorPlanBuilder({ isOpen, onClose, eventId, onSaved, ex
                       onChange={e => setNewGate(prev => ({ ...prev, label: e.target.value }))}
                     />
                   </div>
+                  <div className="fp-input-group" style={{ flex: 1 }}>
+                    <label>Depth Position</label>
+                    <select
+                      value={newGate.depthPosition}
+                      onChange={e => setNewGate(prev => ({ ...prev, depthPosition: e.target.value }))}
+                    >
+                      <option value="inside">1m Inside</option>
+                      <option value="centered">Centered (0.5m)</option>
+                      <option value="outside">1m Outside</option>
+                    </select>
+                  </div>
                 </div>
-                <button type="submit" className="fp-add-booth-btn" style={{ background: '#10B981' }}>
-                  <Plus size={14} style={{ marginRight: '4px', verticalAlign: 'middle' }} />
-                  Add Gate
-                </button>
+                <div className="fp-btn-group-row">
+                  <button type="submit" className="fp-add-booth-btn" style={{ background: '#10B981' }}>
+                    {editingGateId ? 'Update Gate' : <><Plus size={14} style={{ marginRight: '4px', verticalAlign: 'middle' }} /> Add Gate</>}
+                  </button>
+                  {editingGateId && (
+                    <button type="button" className="fp-cancel-btn" onClick={handleCancelGateEdit}>
+                      Cancel
+                    </button>
+                  )}
+                </div>
               </form>
             </div>
 
@@ -1040,45 +1103,68 @@ export default function FloorPlanBuilder({ isOpen, onClose, eventId, onSaved, ex
                   const isEntrance = gate.type === 'entrance';
                   const color = isEntrance ? '#10B981' : '#EF4444';
                   const gateW = gate.widthM * CELL_SIZE;
+                  const depth = gate.depthPosition || 'inside';
+                  
+                  // Offset the marker based on depth position
+                  // inside: 0, centered: 20px (0.5m), outside: 40px (1m)
+                  let offsetPx = 0;
+                  if (depth === 'centered') offsetPx = CELL_SIZE / 2;
+                  else if (depth === 'outside') offsetPx = CELL_SIZE;
+
                   let style = {};
                   let arrowStyle = {};
+
+                  const ARROW_W = 12;
+                  const ARROW_H = 16;
 
                   if (gate.side === 'top') {
                     style = {
                       position: 'absolute',
                       left: `${GATE_PADDING + gate.position * CELL_SIZE}px`,
-                      top: '0px',
+                      top: `${-offsetPx}px`,
                       width: `${gateW}px`,
                       height: `${GATE_PADDING - 4}px`,
                     };
-                    arrowStyle = { borderBottom: `8px solid ${color}`, borderLeft: '6px solid transparent', borderRight: '6px solid transparent' };
+                    // Entrance: Down (borderTop), Exit: Up (borderBottom)
+                    arrowStyle = isEntrance 
+                      ? { borderTop: `${ARROW_H}px solid ${color}`, borderLeft: `${ARROW_W}px solid transparent`, borderRight: `${ARROW_W}px solid transparent` }
+                      : { borderBottom: `${ARROW_H}px solid ${color}`, borderLeft: `${ARROW_W}px solid transparent`, borderRight: `${ARROW_W}px solid transparent` };
                   } else if (gate.side === 'bottom') {
                     style = {
                       position: 'absolute',
                       left: `${GATE_PADDING + gate.position * CELL_SIZE}px`,
-                      bottom: '0px',
+                      bottom: `${-offsetPx}px`,
                       width: `${gateW}px`,
                       height: `${GATE_PADDING - 4}px`,
                     };
-                    arrowStyle = { borderTop: `8px solid ${color}`, borderLeft: '6px solid transparent', borderRight: '6px solid transparent' };
+                    // Entrance: Up (borderBottom), Exit: Down (borderTop)
+                    arrowStyle = isEntrance
+                      ? { borderBottom: `${ARROW_H}px solid ${color}`, borderLeft: `${ARROW_W}px solid transparent`, borderRight: `${ARROW_W}px solid transparent` }
+                      : { borderTop: `${ARROW_H}px solid ${color}`, borderLeft: `${ARROW_W}px solid transparent`, borderRight: `${ARROW_W}px solid transparent` };
                   } else if (gate.side === 'left') {
                     style = {
                       position: 'absolute',
-                      left: '0px',
+                      left: `${-offsetPx}px`,
                       top: `${GATE_PADDING + gate.position * CELL_SIZE}px`,
                       width: `${GATE_PADDING - 4}px`,
                       height: `${gateW}px`,
                     };
-                    arrowStyle = { borderRight: `8px solid ${color}`, borderTop: '6px solid transparent', borderBottom: '6px solid transparent' };
+                    // Entrance: Right (borderLeft), Exit: Left (borderRight)
+                    arrowStyle = isEntrance
+                      ? { borderLeft: `${ARROW_H}px solid ${color}`, borderTop: `${ARROW_W}px solid transparent`, borderBottom: `${ARROW_W}px solid transparent` }
+                      : { borderRight: `${ARROW_H}px solid ${color}`, borderTop: `${ARROW_W}px solid transparent`, borderBottom: `${ARROW_W}px solid transparent` };
                   } else {
                     style = {
                       position: 'absolute',
-                      right: '0px',
+                      right: `${-offsetPx}px`,
                       top: `${GATE_PADDING + gate.position * CELL_SIZE}px`,
                       width: `${GATE_PADDING - 4}px`,
                       height: `${gateW}px`,
                     };
-                    arrowStyle = { borderLeft: `8px solid ${color}`, borderTop: '6px solid transparent', borderBottom: '6px solid transparent' };
+                    // Entrance: Left (borderRight), Exit: Right (borderLeft)
+                    arrowStyle = isEntrance
+                      ? { borderRight: `${ARROW_H}px solid ${color}`, borderTop: `${ARROW_W}px solid transparent`, borderBottom: `${ARROW_W}px solid transparent` }
+                      : { borderLeft: `${ARROW_H}px solid ${color}`, borderTop: `${ARROW_W}px solid transparent`, borderBottom: `${ARROW_W}px solid transparent` };
                   }
 
                   return (
@@ -1122,6 +1208,40 @@ export default function FloorPlanBuilder({ isOpen, onClose, eventId, onSaved, ex
                       />
                     ))}
                   </div>
+
+                  {/* Gate Width Blocks (1m deep blocks on grid boundary) */}
+                  {gates.map(gate => {
+                    const isEntrance = gate.type === 'entrance';
+                    const gateW = gate.widthM * CELL_SIZE;
+                    const depth = gate.depthPosition || 'inside';
+                    let blockStyle = {};
+
+                    // Offset based on depth
+                    // inside: 0, centered: -20px, outside: -40px
+                    let offsetPx = 0;
+                    if (depth === 'centered') offsetPx = -CELL_SIZE / 2;
+                    else if (depth === 'outside') offsetPx = -CELL_SIZE;
+
+                    if (gate.side === 'top') {
+                      blockStyle = { left: `${gate.position * CELL_SIZE}px`, top: `${offsetPx}px`, width: `${gateW}px`, height: `${CELL_SIZE}px` };
+                    } else if (gate.side === 'bottom') {
+                      blockStyle = { left: `${gate.position * CELL_SIZE}px`, bottom: `${offsetPx}px`, width: `${gateW}px`, height: `${CELL_SIZE}px` };
+                    } else if (gate.side === 'left') {
+                      blockStyle = { left: `${offsetPx}px`, top: `${gate.position * CELL_SIZE}px`, width: `${CELL_SIZE}px`, height: `${gateW}px` };
+                    } else {
+                      blockStyle = { right: `${offsetPx}px`, top: `${gate.position * CELL_SIZE}px`, width: `${CELL_SIZE}px`, height: `${gateW}px` };
+                    }
+
+                    return (
+                      <div 
+                        key={`gate-block-${gate.id}`} 
+                        className={`fp-gate-block ${!isEntrance ? 'is-exit' : ''}`}
+                        style={blockStyle}
+                      >
+                        {gate.widthM}m
+                      </div>
+                    );
+                  })}
 
                   {/* Top meter labels */}
                   <div className="fp-labels-top">

@@ -565,11 +565,12 @@
 }
 
 .fp-booth-number {
-  font-size: 0.95rem;
-  font-weight: 800;
+  font-size: 1.5rem;
+  font-weight: 900;
   color: inherit;
   line-height: 1;
-  text-shadow: 0 1px 2px rgba(0,0,0,0.2);
+  text-shadow: 0 1px 3px rgba(0,0,0,0.3);
+  margin-bottom: 10px;
 }
 
 .fp-booth-name {
@@ -869,9 +870,29 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 4px;
+  gap: 6px;
   z-index: 5;
   pointer-events: none;
+}
+
+.fp-gate-block {
+  position: absolute;
+  background: rgba(16, 185, 129, 0.15);
+  border: 2px dashed #10B981;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: #10B981;
+  border-radius: 4px;
+}
+
+.fp-gate-block.is-exit {
+  background: rgba(239, 68, 68, 0.15);
+  border-color: #EF4444;
+  color: #EF4444;
 }
 
 .fp-gate-arrow {
@@ -881,13 +902,14 @@
 }
 
 .fp-gate-label {
-  font-size: 0.6rem;
-  font-weight: 800;
+  font-size: 0.9rem;
+  font-weight: 900;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 1.2px;
   white-space: nowrap;
   text-align: center;
   line-height: 1;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.1);
 }
 
 /* ── Booth Directory ── */
