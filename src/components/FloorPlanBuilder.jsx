@@ -532,8 +532,9 @@ export default function FloorPlanBuilder({ isOpen, onClose, eventId, onSaved, ex
 
       setBooths(prev => prev.map(b => {
         if (b.id !== dragging) return b;
-        const snappedX = Math.round(rawX);
-        const snappedY = Math.round(rawY);
+        // Snap to nearest 0.5 (half grid/center)
+        const snappedX = Math.round(rawX * 2) / 2;
+        const snappedY = Math.round(rawY * 2) / 2;
         const clampedX = Math.max(0, Math.min(gridWidth - b.widthM, snappedX));
         const clampedY = Math.max(0, Math.min(gridHeight - b.heightM, snappedY));
         return { ...b, x: clampedX, y: clampedY };
