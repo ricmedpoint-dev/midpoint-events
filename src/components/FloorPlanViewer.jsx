@@ -254,8 +254,15 @@ export default function FloorPlanViewer({ isOpen, onClose, eventId, sponsorTiers
               area.style.height = `${totalH}px`;
               area.style.display = 'block';
               area.style.background = '#ffffff';
+              area.style.overflow = 'visible';
             }
+            const grid = clonedDoc.querySelector('.fp-grid');
+            if (grid) grid.style.overflow = 'visible';
           }
+          // Prevent booth text cropping
+          clonedDoc.querySelectorAll('.fp-booth').forEach(booth => {
+            booth.style.overflow = 'visible';
+          });
         }
       });
 
@@ -276,24 +283,39 @@ export default function FloorPlanViewer({ isOpen, onClose, eventId, sponsorTiers
           useCORS: true,
           scale: 2,
           backgroundColor: '#ffffff',
-          width: 1200,
-          windowWidth: 1400,
+          width: 1500, 
+          windowWidth: 1600,
           onclone: (clonedDoc) => {
             const header = clonedDoc.querySelector('.fp-directory-header');
             if (header) header.style.display = 'none';
 
             const dir = clonedDoc.querySelector('.fp-directory');
             if (dir) {
-              dir.style.width = '1200px';
+              dir.style.width = '1400px'; // Set a wider width for the directory itself
               dir.style.maxWidth = 'none';
-              dir.style.padding = '40px';
+              dir.style.padding = '20px';
+              dir.style.margin = '0';
+              dir.style.overflow = 'visible';
+              dir.style.zoom = '0.75'; // Scale down the whole directory to fit comfortably in PDF width
             }
 
-            // Fix logos
-            clonedDoc.querySelectorAll('.fp-directory-card-logo img').forEach(img => {
-              img.style.objectFit = 'contain';
-              img.style.width = '100%';
-              img.style.height = '100%';
+            // Fix logos and prevent stretching
+            clonedDoc.querySelectorAll('.fp-directory-card-logo').forEach(container => {
+              container.style.display = 'flex';
+              container.style.alignItems = 'center';
+              container.style.justifyContent = 'center';
+              container.style.background = '#fff';
+              container.style.overflow = 'visible';
+              
+              const img = container.querySelector('img');
+              if (img) {
+                img.style.maxWidth = '100%';
+                img.style.maxHeight = '100%';
+                img.style.width = 'auto';
+                img.style.height = 'auto';
+                img.style.objectFit = 'contain';
+                img.style.display = 'block';
+              }
             });
           }
         });
@@ -746,13 +768,7 @@ export default function FloorPlanViewer({ isOpen, onClose, eventId, sponsorTiers
                     <strong>Position:</strong>
                     <span>Row {resolved.y + 1}, Col {resolved.x + 1}</span>
                   </div>
-                  <div className="fp-booth-detail-meta-item">
-                    <strong>Color:</strong>
-                    <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <span style={{ width: '14px', height: '14px', borderRadius: '4px', background: resolved.color, display: 'inline-block', border: '1px solid rgba(0,0,0,0.1)' }} />
-                      {resolved.color}
-                    </span>
-                  </div>
+
                 </div>
               </div>
             </div>

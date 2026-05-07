@@ -20,7 +20,7 @@ export default function FloorPlanBuilder({ isOpen, onClose, eventId, onSaved, ex
   const resolveBoothData = useCallback((booth) => {
     // 1. Try to find exhibitor by ID (best way)
     let exhibitor = booth.exhibitorId ? exhibitors.find(ex => ex.id === booth.exhibitorId) : null;
-    
+
     // 2. If not found by ID, try matching by name (migration for existing data)
     if (!exhibitor && booth.name && booth.name !== 'Available' && booth.name !== 'TBD') {
       exhibitor = exhibitors.find(ex => ex.name === booth.name);
@@ -35,7 +35,7 @@ export default function FloorPlanBuilder({ isOpen, onClose, eventId, onSaved, ex
         exhibitorId: exhibitor.id
       };
     }
-    
+
     // 3. If it HAD an exhibitorId but no exhibitor was found, it was deleted
     if (booth.exhibitorId) {
       return {
@@ -46,7 +46,7 @@ export default function FloorPlanBuilder({ isOpen, onClose, eventId, onSaved, ex
         color: '#f1f3f5'
       };
     }
-    
+
     return booth;
   }, [exhibitors]);
   // Grid dimensions
@@ -119,7 +119,7 @@ export default function FloorPlanBuilder({ isOpen, onClose, eventId, onSaved, ex
         setGridHeight(h);
         setGridWidthInput(String(w));
         setGridHeightInput(String(h));
-        
+
         // Auto-migration: Link booths to exhibitorIds by name if missing
         const rawBooths = data.booths || [];
         const migratedBooths = rawBooths.map(b => {
@@ -129,10 +129,10 @@ export default function FloorPlanBuilder({ isOpen, onClose, eventId, onSaved, ex
           }
           return b;
         });
-        
+
         setBooths(migratedBooths);
         setGates(data.gates || []);
-        
+
         // Save initial state for change detection
         setInitialData({
           width: w,
@@ -216,10 +216,10 @@ export default function FloorPlanBuilder({ isOpen, onClose, eventId, onSaved, ex
       booths,
       gates
     };
-    
+
     // Check for changes (using stringify for deep comparison)
     const hasChanges = initialData && JSON.stringify(initialData) !== JSON.stringify(currentData);
-    
+
     if (hasChanges) {
       setShowExitConfirm(true);
     } else {
@@ -232,7 +232,7 @@ export default function FloorPlanBuilder({ isOpen, onClose, eventId, onSaved, ex
     e.preventDefault();
     const maxLen = (newGate.side === 'top' || newGate.side === 'bottom') ? gridWidth : gridHeight;
     const pos = Math.max(0, Math.min(maxLen - (parseInt(newGate.widthM) || 1), parseInt(newGate.position) || 0));
-    
+
     if (editingGateId) {
       setGates(prev => prev.map(g => {
         if (g.id !== editingGateId) return g;
@@ -399,7 +399,7 @@ export default function FloorPlanBuilder({ isOpen, onClose, eventId, onSaved, ex
     const match = current.match(/^(.*?)(\d+)$/);
     let prefix = '';
     let num = 0;
-    
+
     if (match) {
       prefix = match[1];
       num = parseInt(match[2]);
@@ -410,7 +410,7 @@ export default function FloorPlanBuilder({ isOpen, onClose, eventId, onSaved, ex
 
     let nextNum = num + 1;
     let candidate = `${prefix}${nextNum}`;
-    
+
     // Safety break after 100 attempts
     let attempts = 0;
     while (all.some(b => b.boothNumber === candidate) && attempts < 100) {
@@ -443,12 +443,12 @@ export default function FloorPlanBuilder({ isOpen, onClose, eventId, onSaved, ex
       setNewBooth(prev => ({ ...prev, name: '', useTierColor: false, logo: null, exhibitorId: null }));
       return;
     }
-    
+
     setIsManualExhibitor(false);
     const exhibitor = exhibitors.find(ex => ex.name === exhibitorName);
     if (exhibitor) {
       let color = prevBoothColor.current || newBooth.color;
-      
+
       // If useTierColor is enabled, find the tier color
       if (newBooth.useTierColor) {
         const tier = sponsorTiers.find(t => t.label === exhibitor.sponsorType);
@@ -485,7 +485,7 @@ export default function FloorPlanBuilder({ isOpen, onClose, eventId, onSaved, ex
       } else if (prevBoothColor.current) {
         newColor = prevBoothColor.current;
       }
-      
+
       return { ...prev, useTierColor: checked, color: newColor };
     });
   };
@@ -661,7 +661,7 @@ export default function FloorPlanBuilder({ isOpen, onClose, eventId, onSaved, ex
       const dx = e.touches[0].clientX - e.touches[1].clientX;
       const dy = e.touches[0].clientY - e.touches[1].clientY;
       const dist = Math.hypot(dx, dy);
-      
+
       const scale = dist / pinchStartDist.current;
       const nextZoom = pinchStartZoom.current * scale;
       setZoom(Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, nextZoom)));
@@ -805,18 +805,14 @@ export default function FloorPlanBuilder({ isOpen, onClose, eventId, onSaved, ex
                         const fromIndex = parseInt(e.dataTransfer.getData('text/plain'));
                         const toIndex = index;
                         if (fromIndex === toIndex) return;
-                        
+
                         const updated = [...booths];
                         const [moved] = updated.splice(fromIndex, 1);
                         updated.splice(toIndex, 0, moved);
                         setBooths(updated);
                       }}
                     >
-                      <div
-                        className="fp-booth-color-dot"
-                        style={{ background: b.color }}
-                      />
-                      <div className="fp-booth-item-info">
+                      <div className="fp-booth-item-info" style={{ marginLeft: 0 }}>
                         <div className="fp-booth-item-number">{b.boothNumber}</div>
                         <div className="fp-booth-item-name">{b.name}</div>
                       </div>
@@ -966,8 +962,8 @@ export default function FloorPlanBuilder({ isOpen, onClose, eventId, onSaved, ex
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
                     <span style={{ fontSize: '0.8rem', color: '#868e96' }}>Booth Color</span>
                     <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.72rem', color: '#1a1a2e', cursor: 'pointer' }}>
-                      <input 
-                        type="checkbox" 
+                      <input
+                        type="checkbox"
                         checked={newBooth.useTierColor}
                         onChange={(e) => toggleUseTierColor(e.target.checked)}
                       />
@@ -1072,14 +1068,14 @@ export default function FloorPlanBuilder({ isOpen, onClose, eventId, onSaved, ex
               </form>
             </div>
 
-          {/* Mobile sidebar toggle */}
-          <button
-            className="fp-sidebar-toggle fp-btn fp-btn-secondary"
-            onClick={() => setSidebarCollapsed(prev => !prev)}
-          >
-            {sidebarCollapsed ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
-            <span>{sidebarCollapsed ? 'Show Panel' : 'Hide Panel'}</span>
-          </button>
+            {/* Mobile sidebar toggle */}
+            <button
+              className="fp-sidebar-toggle fp-btn fp-btn-secondary"
+              onClick={() => setSidebarCollapsed(prev => !prev)}
+            >
+              {sidebarCollapsed ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
+              <span>{sidebarCollapsed ? 'Show Panel' : 'Hide Panel'}</span>
+            </button>
 
             {/* Grid Area */}
             <div
@@ -1104,7 +1100,7 @@ export default function FloorPlanBuilder({ isOpen, onClose, eventId, onSaved, ex
                   const color = isEntrance ? '#10B981' : '#EF4444';
                   const gateW = gate.widthM * CELL_SIZE;
                   const depth = gate.depthPosition || 'inside';
-                  
+
                   // Offset the marker based on depth position
                   // inside: 0, centered: 20px (0.5m), outside: 40px (1m)
                   let offsetPx = 0;
@@ -1126,7 +1122,7 @@ export default function FloorPlanBuilder({ isOpen, onClose, eventId, onSaved, ex
                       height: `${GATE_PADDING - 4}px`,
                     };
                     // Entrance: Down (borderTop), Exit: Up (borderBottom)
-                    arrowStyle = isEntrance 
+                    arrowStyle = isEntrance
                       ? { borderTop: `${ARROW_H}px solid ${color}`, borderLeft: `${ARROW_W}px solid transparent`, borderRight: `${ARROW_W}px solid transparent` }
                       : { borderBottom: `${ARROW_H}px solid ${color}`, borderLeft: `${ARROW_W}px solid transparent`, borderRight: `${ARROW_W}px solid transparent` };
                   } else if (gate.side === 'bottom') {
@@ -1233,8 +1229,8 @@ export default function FloorPlanBuilder({ isOpen, onClose, eventId, onSaved, ex
                     }
 
                     return (
-                      <div 
-                        key={`gate-block-${gate.id}`} 
+                      <div
+                        key={`gate-block-${gate.id}`}
                         className={`fp-gate-block ${!isEntrance ? 'is-exit' : ''}`}
                         style={blockStyle}
                       >
@@ -1273,7 +1269,7 @@ export default function FloorPlanBuilder({ isOpen, onClose, eventId, onSaved, ex
                   {booths.map(originalBooth => {
                     const b = resolveBoothData(originalBooth);
                     return (
-                      <Booth 
+                      <Booth
                         key={b.id}
                         booth={b}
                         isSelected={selectedBoothId === b.id}
@@ -1312,8 +1308,8 @@ export default function FloorPlanBuilder({ isOpen, onClose, eventId, onSaved, ex
               <h3>Unsaved Changes</h3>
               <p>You have unsaved changes on your floor plan. Do you want to save them before closing?</p>
               <div className="fp-confirm-actions">
-                <button 
-                  className="fp-btn fp-btn-secondary" 
+                <button
+                  className="fp-btn fp-btn-secondary"
                   onClick={() => {
                     setShowExitConfirm(false);
                     onClose();
@@ -1321,8 +1317,8 @@ export default function FloorPlanBuilder({ isOpen, onClose, eventId, onSaved, ex
                 >
                   No, Discard
                 </button>
-                <button 
-                  className="fp-btn fp-btn-primary" 
+                <button
+                  className="fp-btn fp-btn-primary"
                   onClick={async () => {
                     await handleSave();
                     setShowExitConfirm(false);
@@ -1346,15 +1342,15 @@ export default function FloorPlanBuilder({ isOpen, onClose, eventId, onSaved, ex
                   <X size={16} />
                 </button>
                 {resolved.sponsorType && (
-                  <div 
-                    className="fp-booth-detail-tier" 
-                    style={{ 
-                      color: sponsorTiers.find(t => t.label === resolved.sponsorType)?.color || resolved.color, 
-                      fontWeight: 800, 
-                      fontSize: '0.85rem', 
-                      marginBottom: '8px', 
-                      textTransform: 'uppercase', 
-                      letterSpacing: '0.5px' 
+                  <div
+                    className="fp-booth-detail-tier"
+                    style={{
+                      color: sponsorTiers.find(t => t.label === resolved.sponsorType)?.color || resolved.color,
+                      fontWeight: 800,
+                      fontSize: '0.85rem',
+                      marginBottom: '8px',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.5px'
                     }}
                   >
                     {resolved.sponsorType.replace(/\/s$/, '')}
@@ -1369,7 +1365,7 @@ export default function FloorPlanBuilder({ isOpen, onClose, eventId, onSaved, ex
 
                 <h3>{resolved.name}</h3>
                 <div className="fp-booth-detail-number">Booth {resolved.boothNumber}</div>
-                
+
                 <div className="fp-booth-detail-meta">
                   {resolved.name !== 'Available' && resolved.name !== 'TBD' && (
                     <div className="fp-booth-detail-meta-item">
