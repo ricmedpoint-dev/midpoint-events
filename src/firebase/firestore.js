@@ -98,6 +98,31 @@ export async function updateEventStats(id, collectionName, visitorCount) {
   });
 }
 
+export async function updateEventGallery(id, collectionName, gallery) {
+  const docRef = doc(db, collectionName, id);
+  await updateDoc(docRef, {
+    gallery,
+    updatedAt: new Date().toISOString()
+  });
+}
+
+export async function updateEventSpeakers(id, collectionName, speakers) {
+  const docRef = doc(db, collectionName, id);
+  await updateDoc(docRef, {
+    speakers,
+    updatedAt: new Date().toISOString()
+  });
+}
+
+export async function updateEventSchedule(id, collectionName, schedule, scheduleSettings) {
+  const docRef = doc(db, collectionName, id);
+  await updateDoc(docRef, {
+    schedule,
+    scheduleSettings,
+    updatedAt: new Date().toISOString()
+  });
+}
+
 // ── Exhibitors ──
 export async function getExhibitors() {
   const q = query(collection(db, 'exhibitors'), orderBy('order', 'asc'));

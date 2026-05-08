@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { ChevronLeft, Calendar, MapPin, Clock, User, MessageCircle, Heart, Send, Trash, Settings, Grid3X3, Search, Share2, GraduationCap, Globe, Compass, Users, CalendarClock, Check, ExternalLink, Navigation } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar, MapPin, Clock, User, MessageCircle, Heart, Send, Trash, Settings, Grid3X3, Search, Share2, GraduationCap, Globe, Compass, Users, CalendarClock, Check, ExternalLink, Navigation, Image, Mic, Play } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import PlaceholderImage from '../components/PlaceholderImage';
 import RegisterModal from '../components/RegisterModal';
@@ -12,11 +12,14 @@ import FloorPlanBuilder from '../components/FloorPlanBuilder';
 import FloorPlanViewer from '../components/FloorPlanViewer';
 import CountriesModal from '../components/CountriesModal';
 import ExhibitorsListModal from '../components/ExhibitorsListModal';
+import GalleryAdminModal from '../components/GalleryAdminModal';
+import SpeakerAdminModal from '../components/SpeakerAdminModal';
+import ScheduleAdminModal from '../components/ScheduleAdminModal';
 import '../styles/Exhibitors.css';
 import { 
   getEventBySlug, toggleLike, checkIfLiked, addComment, 
   subscribeToComments, deleteComment, getExhibitorsByEvent, getFloorPlan,
-  updateEventStats 
+  updateEventStats, updateEventGallery, updateEventSpeakers 
 } from '../firebase/firestore';
 
 const DEFAULT_TIERS = [
@@ -169,6 +172,13 @@ export default function EventDetail() {
   const [floorPlanLoading, setFloorPlanLoading] = useState(true);
   const [showCountriesModal, setShowCountriesModal] = useState(false);
   const [showExhibitorsModal, setShowExhibitorsModal] = useState(false);
+  const [showGalleryModal, setShowGalleryModal] = useState(false);
+  const [showSpeakerModal, setShowSpeakerModal] = useState(false);
+  const [showScheduleModal, setShowScheduleModal] = useState(false);
+  const [activeScheduleDay, setActiveScheduleDay] = useState(0);
+  const [galleryIndex, setGalleryIndex] = useState(0);
+  const [lightboxImage, setLightboxImage] = useState(null);
+  const [expandedSpeaker, setExpandedSpeaker] = useState(null);
   const [selectedExhibitor, setSelectedExhibitor] = useState(null);
   const [exhibitors, setExhibitors] = useState([]);
   const [exhibitorsLoading, setExhibitorsLoading] = useState(true);
@@ -185,6 +195,8 @@ export default function EventDetail() {
   const overviewRef = useRef(null);
   const exhibitorsRef = useRef(null);
   const scheduleRef = useRef(null);
+  const speakersRef = useRef(null);
+  const galleryRef = useRef(null);
   const commentsRef = useRef(null);
   const statsRef = useRef(null);
   const tabsRef = useRef(null);
@@ -200,8 +212,18 @@ export default function EventDetail() {
   const startDate = useMemo(() => parseEventDate(event?.date), [event?.date]);
   const endDate = useMemo(() => parseEventEndDate(event?.date), [event?.date]);
   const countdown = useCountdown(startDate, endDate);
-  
-  const schedule = useMemo(() => event?.schedule || DEFAULT_SCHEDULE, [event?.schedule]);
+  const scheduleRaw = useMemo(() => event?.schedule || DEFAULT_SCHEDULE, [event?.schedule]);
+  const schedule = useMemo(() => {
+    if (scheduleRaw.length > 0 && !scheduleRaw[0].items) {
+      return [{
+        dayTitle: 'Day 1 - Highlights',
+        date: event?.date || '',
+        items: scheduleRaw
+      }];
+    }
+    return scheduleRaw;
+  }, [scheduleRaw, event?.date]);
+
   const whyAttend = useMemo(() => event?.highlights || WHY_ATTEND_DEFAULTS, [event?.highlights]);
 
   // Stats with animated counters
@@ -237,12 +259,30 @@ export default function EventDetail() {
     return () => obs.disconnect();
   }, [exhibitors.length, event?.stats]);
 
+  // Scroll-reveal animations
+  useEffect(() => {
+    const revealEls = document.querySelectorAll('.scroll-reveal');
+    if (!revealEls.length) return;
+    const obs = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('revealed');
+          obs.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.1 });
+    revealEls.forEach(el => obs.observe(el));
+    return () => obs.disconnect();
+  }, [event]);
+
   // Scroll-spy for tabs
   useEffect(() => {
     const sections = [
       { ref: overviewRef, id: 'overview' },
       { ref: exhibitorsRef, id: 'exhibitors' },
       { ref: scheduleRef, id: 'schedule' },
+      { ref: speakersRef, id: 'speakers' },
+      { ref: galleryRef, id: 'gallery' },
       { ref: commentsRef, id: 'comments' },
     ];
     const obs = new IntersectionObserver((entries) => {
@@ -258,7 +298,14 @@ export default function EventDetail() {
   }, [event]);
 
   const scrollToSection = (id) => {
-    const refs = { overview: overviewRef, exhibitors: exhibitorsRef, schedule: scheduleRef, comments: commentsRef };
+    const refs = { 
+      overview: overviewRef, 
+      exhibitors: exhibitorsRef, 
+      schedule: scheduleRef, 
+      speakers: speakersRef,
+      gallery: galleryRef,
+      comments: commentsRef 
+    };
     refs[id]?.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     setActiveTab(id);
   };
@@ -510,6 +557,8 @@ export default function EventDetail() {
             { id: 'overview', label: 'Overview', icon: <Compass size={15} /> },
             { id: 'exhibitors', label: 'Partners & Exhibitors', icon: <GraduationCap size={15} />, count: exhibitors.length },
             { id: 'schedule', label: 'Schedule', icon: <CalendarClock size={15} /> },
+            { id: 'speakers', label: 'Speakers', icon: <Mic size={15} />, count: event?.speakers?.length || 0 },
+            { id: 'gallery', label: 'Gallery', icon: <Image size={15} />, count: event?.gallery?.length || 0 },
             { id: 'comments', label: 'Comments', icon: <MessageCircle size={15} />, count: comments.length },
           ].map(tab => (
             <button key={tab.id} className={`hub-tab ${activeTab === tab.id ? 'active' : ''}`}
@@ -526,7 +575,7 @@ export default function EventDetail() {
       <div className="hub-content-area">
 
         {/* ── OVERVIEW SECTION ── */}
-        <div className="hub-section" ref={overviewRef} id="section-overview">
+        <div className="hub-section scroll-reveal" ref={overviewRef} id="section-overview">
           <h2 className="hub-section-title"><Compass size={20} className="title-icon" /> About This Event</h2>
           <div className="hub-description">
             {event.description ? event.description.split('\n').map((line, i) => <p key={i}>{line}</p>) : <p>No description available.</p>}
@@ -616,7 +665,7 @@ export default function EventDetail() {
         </div>
 
         {/* ── EXHIBITORS SECTION ── */}
-        <div className="hub-section" ref={exhibitorsRef} id="section-exhibitors">
+        <div className="hub-section scroll-reveal" ref={exhibitorsRef} id="section-exhibitors">
           <h2 className="hub-section-title"><GraduationCap size={20} className="title-icon" /> Partners and Exhibitors</h2>
 
           {isAdmin && (
@@ -674,23 +723,68 @@ export default function EventDetail() {
         </div>
 
         {/* ── SCHEDULE SECTION ── */}
-        <div className="hub-section" ref={scheduleRef} id="section-schedule">
+        <div className="hub-section scroll-reveal" ref={scheduleRef} id="section-schedule">
           <h2 className="hub-section-title"><CalendarClock size={20} className="title-icon" /> Event Schedule</h2>
+          
+          {isAdmin && (
+            <div className="admin-manage-exhibitors" style={{ marginBottom: '20px' }}>
+              <div className="admin-manage-title"><Calendar size={18} /><span>Admin: Manage Schedule</span></div>
+              <div className="admin-action-btns">
+                <button className="btn-admin-add" onClick={() => setShowScheduleModal(true)} style={{ background: '#f0fdf4', color: '#16a34a', border: '1px solid #bbf7d0' }}>
+                  <Settings size={14} /><span>Manage</span>
+                </button>
+              </div>
+            </div>
+          )}
+
           {schedule.length > 0 ? (
-            <div className="schedule-timeline">
-              {schedule.map((item, i) => (
-                <div key={i} className="schedule-item">
-                  <div className="schedule-dot" style={{ background: eventColor }} />
-                  <div className="schedule-time">{item.time}</div>
-                  <div className="schedule-card">
-                    <div className="schedule-card-header">
-                      <span className="schedule-card-title">{item.title}</span>
-                      {item.type && <span className={`schedule-type-badge ${item.type.toLowerCase()}`}>{item.type}</span>}
+            <div className="schedule-multi-day-container">
+              {/* Day Tabs if multiple days */}
+              {schedule.length > 1 && (
+                <div className="schedule-day-tabs">
+                  {schedule.map((day, idx) => (
+                    <button 
+                      key={idx} 
+                      className={`day-tab-btn ${activeScheduleDay === idx ? 'active' : ''}`}
+                      style={activeScheduleDay === idx ? { '--active-color': eventColor } : {}}
+                      onClick={() => setActiveScheduleDay(idx)}
+                    >
+                      Day {idx + 1}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* Active Day Content */}
+              {schedule[activeScheduleDay] && (
+                <div className="schedule-day-highlights" style={{ 
+                  '--schedule-color': event?.scheduleSettings?.color || eventColor,
+                  '--accent-color': event?.scheduleSettings?.accent || '#B4A076'
+                }}>
+                  <div className="highlights-header-container">
+                    <div className="highlights-title-badge">
+                      {schedule[activeScheduleDay].dayTitle || `DAY ${activeScheduleDay + 1} - HIGHLIGHTS`}
                     </div>
-                    {item.description && <p className="schedule-card-desc">{item.description}</p>}
+                    {schedule[activeScheduleDay].date && (
+                      <div className="highlights-date-card">
+                        {schedule[activeScheduleDay].date}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="highlights-items-list">
+                    {(schedule[activeScheduleDay].items || []).map((item, i) => (
+                      <div key={i} className="highlight-item">
+                        <div className="highlight-time">{item.time}</div>
+                        <div className="highlight-content">
+                          <div className="highlight-title">{item.title}</div>
+                          {item.description && <div className="highlight-desc">{item.description}</div>}
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
-              ))}
+              )}
             </div>
           ) : (
             <div className="schedule-empty-state">
@@ -701,8 +795,140 @@ export default function EventDetail() {
           )}
         </div>
 
+        {/* ── SPEAKERS SECTION ── */}
+        <div className="hub-section scroll-reveal" ref={speakersRef} id="section-speakers">
+          <h2 className="hub-section-title"><Mic size={20} className="title-icon" /> Speakers & Keynotes</h2>
+          
+          {isAdmin && (
+            <div className="admin-manage-exhibitors" style={{ marginBottom: '20px' }}>
+              <div className="admin-manage-title"><Mic size={18} /><span>Admin: Manage Speakers</span></div>
+              <div className="admin-action-btns">
+                <button className="btn-admin-add" onClick={() => setShowSpeakerModal(true)} style={{ background: '#f5f3ff', color: '#8B5CF6', border: '1px solid #ddd6fe' }}>
+                  <Settings size={14} /><span>Manage</span>
+                </button>
+              </div>
+            </div>
+          )}
+
+          {event?.speakers?.length > 0 ? (
+            <div className="speakers-grid">
+              {event.speakers.map((speaker, i) => (
+                <div key={i} className="speaker-card" onClick={() => setExpandedSpeaker(expandedSpeaker === i ? null : i)}>
+                  <div className="speaker-photo">
+                    {speaker.photo ? (
+                      <img src={speaker.photo} alt={speaker.name} />
+                    ) : (
+                      <div className="speaker-photo-fallback" style={{ background: `${eventColor}20`, color: eventColor }}>
+                        <User size={32} />
+                      </div>
+                    )}
+                  </div>
+                  <div className="speaker-info">
+                    <div className="speaker-name">{speaker.name}</div>
+                    {speaker.title && <div className="speaker-role">{speaker.title}</div>}
+                    {speaker.organization && <div className="speaker-org">{speaker.organization}</div>}
+                  </div>
+                  {expandedSpeaker === i && speaker.bio && (
+                    <div className="speaker-bio-expanded">{speaker.bio}</div>
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="schedule-empty-state">
+              <div className="schedule-empty-icon"><Mic size={32} /></div>
+              <div className="schedule-empty-title">Speakers Coming Soon</div>
+              <p className="schedule-empty-text">Our lineup of distinguished speakers will be announced shortly.</p>
+            </div>
+          )}
+        </div>
+
+        {/* ── GALLERY SECTION ── */}
+        <div className="hub-section scroll-reveal" ref={galleryRef} id="section-gallery">
+          <h2 className="hub-section-title"><Image size={20} className="title-icon" /> Event Gallery</h2>
+          
+          {isAdmin && (
+            <div className="admin-manage-exhibitors" style={{ marginBottom: '20px' }}>
+              <div className="admin-manage-title"><Image size={18} /><span>Admin: Manage Gallery</span></div>
+              <div className="admin-action-btns">
+                <button className="btn-admin-add" onClick={() => setShowGalleryModal(true)} style={{ background: '#eff6ff', color: '#3B82F6', border: '1px solid #bfdbfe' }}>
+                  <Settings size={14} /><span>Manage</span>
+                </button>
+              </div>
+            </div>
+          )}
+
+          {event?.gallery?.length > 0 ? (
+            <div className="gallery-carousel-wrapper">
+              <div className="gallery-carousel">
+                <div className="gallery-slide">
+                  {event.gallery[galleryIndex]?.type === 'video' ? (
+                    <div className="gallery-video-container">
+                      <iframe
+                        src={event.gallery[galleryIndex].url.replace('watch?v=', 'embed/')}
+                        title={event.gallery[galleryIndex].caption || 'Event Video'}
+                        allowFullScreen
+                        style={{ width: '100%', height: '100%', border: 0, borderRadius: '16px' }}
+                      />
+                    </div>
+                  ) : (
+                    <img
+                      src={event.gallery[galleryIndex]?.url}
+                      alt={event.gallery[galleryIndex]?.caption || 'Event Photo'}
+                      onClick={() => setLightboxImage(event.gallery[galleryIndex]?.url)}
+                      className="gallery-slide-img"
+                    />
+                  )}
+                </div>
+
+                {event.gallery.length > 1 && (
+                  <>
+                    <button className="gallery-nav-btn prev" onClick={() => setGalleryIndex(i => i === 0 ? event.gallery.length - 1 : i - 1)}>
+                      <ChevronLeft size={24} />
+                    </button>
+                    <button className="gallery-nav-btn next" onClick={() => setGalleryIndex(i => i === event.gallery.length - 1 ? 0 : i + 1)}>
+                      <ChevronRight size={24} />
+                    </button>
+                  </>
+                )}
+              </div>
+
+              {event.gallery[galleryIndex]?.caption && (
+                <div className="gallery-caption">{event.gallery[galleryIndex].caption}</div>
+              )}
+
+              {event.gallery.length > 1 && (
+                <div className="gallery-dots">
+                  {event.gallery.map((_, i) => (
+                    <button
+                      key={i}
+                      className={`gallery-dot ${i === galleryIndex ? 'active' : ''}`}
+                      style={i === galleryIndex ? { background: eventColor } : {}}
+                      onClick={() => setGalleryIndex(i)}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="schedule-empty-state">
+              <div className="schedule-empty-icon"><Image size={32} /></div>
+              <div className="schedule-empty-title">Gallery Coming Soon</div>
+              <p className="schedule-empty-text">Event photos and videos will be shared here. Stay tuned!</p>
+            </div>
+          )}
+        </div>
+
+        {/* Lightbox */}
+        {lightboxImage && (
+          <div className="gallery-lightbox" onClick={() => setLightboxImage(null)}>
+            <img src={lightboxImage} alt="Full size" />
+            <button className="lightbox-close"><X size={24} /></button>
+          </div>
+        )}
+
         {/* ── COMMENTS SECTION ── */}
-        <div className="hub-section" ref={commentsRef} id="section-comments" style={{ paddingBottom: '100px' }}>
+        <div className="hub-section scroll-reveal" ref={commentsRef} id="section-comments" style={{ paddingBottom: '100px' }}>
           <h2 className="hub-section-title"><MessageCircle size={20} className="title-icon" /> Comments ({comments.length})</h2>
           <form className="comment-form" onSubmit={handleComment}>
             {!user && <input type="text" placeholder="Your Name" className="guest-name-input" value={guestName} onChange={e => setGuestName(e.target.value)} required />}
@@ -759,6 +985,17 @@ export default function EventDetail() {
       <TierSettingsModal isOpen={showTierSettingsModal} onClose={() => setShowTierSettingsModal(false)} event={event} onSaved={loadEventData} />
       <FloorPlanBuilder isOpen={showFloorPlanBuilder} onClose={() => setShowFloorPlanBuilder(false)} eventId={event?.id} exhibitors={exhibitors} sponsorTiers={event?.sponsorTiers || DEFAULT_TIERS} onSaved={checkFloorPlan} />
       <FloorPlanViewer isOpen={showFloorPlanViewer} onClose={() => setShowFloorPlanViewer(false)} eventId={event?.id} sponsorTiers={event?.sponsorTiers || DEFAULT_TIERS} event={event} exhibitors={exhibitors} />
+      <GalleryAdminModal isOpen={showGalleryModal} onClose={() => setShowGalleryModal(false)} event={event} onSaved={() => loadEventData(false)} />
+      <SpeakerAdminModal isOpen={showSpeakerModal} onClose={() => setShowSpeakerModal(false)} event={event} onSaved={() => loadEventData(false)} />
+      <ScheduleAdminModal 
+        isOpen={showScheduleModal} 
+        onClose={() => setShowScheduleModal(false)} 
+        event={event} 
+        onSaved={() => loadEventData(false)} 
+        startDate={startDate}
+        endDate={endDate}
+        eventColor={eventColor}
+      />
     </div>
   );
 }
