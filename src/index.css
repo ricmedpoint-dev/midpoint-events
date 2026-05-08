@@ -4654,6 +4654,150 @@ button {
   font-weight: 600;
 }
 
+.hub-stat-card.clickable {
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.hub-stat-card.clickable:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.hub-stat-hint {
+  font-size: 0.6rem;
+  color: var(--active-color, var(--color-primary));
+  opacity: 0;
+  transform: translateY(5px);
+  transition: all 0.2s ease;
+  position: absolute;
+  bottom: 8px;
+  width: 100%;
+  text-align: center;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.hub-stat-card.clickable:hover .hub-stat-hint {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* ── Countries Modal ── */
+.countries-modal {
+  padding: 0 !important; /* Let body handle padding */
+  display: flex;
+  flex-direction: column;
+}
+
+.modal-header-refined {
+  padding: 32px 32px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--color-gray-100);
+}
+
+.modal-header-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.modal-header-title h3 {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: var(--color-gray-900);
+}
+
+.modal-subtitle {
+  font-size: 0.95rem;
+  color: var(--color-gray-600);
+  margin-bottom: 24px;
+}
+
+.modal-body {
+  padding: 0 32px 32px;
+}
+
+.countries-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-height: 400px;
+  overflow-y: auto;
+  padding-right: 8px;
+  margin-top: 16px;
+}
+
+.country-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: var(--color-gray-50);
+  border-radius: 12px;
+  transition: transform 0.2s ease;
+}
+
+.country-row:hover {
+  transform: translateX(4px);
+  background: var(--color-gray-100);
+}
+
+.country-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.country-flag-wrapper {
+  width: 32px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: white;
+  border-radius: 4px;
+  overflow: hidden;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  border: 1px solid rgba(0,0,0,0.05);
+}
+
+.country-flag-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.country-flag-placeholder {
+  color: var(--color-gray-300);
+}
+
+.country-name {
+  font-weight: 600;
+  color: var(--color-gray-800);
+  font-size: 0.95rem;
+}
+
+.country-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.country-count {
+  font-size: 1.1rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.country-stat-label {
+  font-size: 0.65rem;
+  color: var(--color-gray-500);
+  text-transform: uppercase;
+  font-weight: 700;
+}
+
 /* ── Sticky Tab Navigation ── */
 .hub-tabs-wrapper {
   position: sticky;

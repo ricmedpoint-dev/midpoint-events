@@ -10,6 +10,7 @@ import ExhibitorDetailModal from '../components/ExhibitorDetailModal';
 import TierSettingsModal from '../components/TierSettingsModal';
 import FloorPlanBuilder from '../components/FloorPlanBuilder';
 import FloorPlanViewer from '../components/FloorPlanViewer';
+import CountriesModal from '../components/CountriesModal';
 import '../styles/Exhibitors.css';
 import { 
   getEventBySlug, toggleLike, checkIfLiked, addComment, 
@@ -164,6 +165,7 @@ export default function EventDetail() {
   const [showFloorPlanViewer, setShowFloorPlanViewer] = useState(false);
   const [hasFloorPlan, setHasFloorPlan] = useState(false);
   const [floorPlanLoading, setFloorPlanLoading] = useState(true);
+  const [showCountriesModal, setShowCountriesModal] = useState(false);
   const [selectedExhibitor, setSelectedExhibitor] = useState(null);
   const [exhibitors, setExhibitors] = useState([]);
   const [exhibitorsLoading, setExhibitorsLoading] = useState(true);
@@ -200,8 +202,20 @@ export default function EventDetail() {
   const whyAttend = useMemo(() => event?.highlights || WHY_ATTEND_DEFAULTS, [event?.highlights]);
 
   // Stats with animated counters
-  const uniqueCountries = [...new Set(exhibitors.map(e => e.country).filter(Boolean))].length;
-  const statExhibitors = useAnimatedCounter(exhibitors.length || (event?.stats?.exhibitors || 0));
+  const exhibitingPartners = useMemo(() => exhibitors.filter(e => e.isExhibitor !== false), [exhibitors]);
+  
+  const uniqueCountries = useMemo(() => {
+    const normalizedCountries = exhibitingPartners.map(e => {
+      const c = e.country || '';
+      if (c.toLowerCase().includes('emirates') || c.toLowerCase().includes('uae')) return 'UAE';
+      if (c.toLowerCase().includes('usa') || c.toLowerCase().includes('states')) return 'USA';
+      if (c.toLowerCase().includes('uk') || c.toLowerCase().includes('kingdom')) return 'UK';
+      return c;
+    }).filter(Boolean);
+    return [...new Set(normalizedCountries)].length;
+  }, [exhibitingPartners]);
+
+  const statExhibitors = useAnimatedCounter(exhibitingPartners.length || (event?.stats?.exhibitors || 0));
   const statCountries = useAnimatedCounter(uniqueCountries || (event?.stats?.countries || 0));
   const statVisitors = useAnimatedCounter(event?.stats?.visitors || 5000);
 
@@ -417,9 +431,9 @@ export default function EventDetail() {
           <div className="hub-stat-card">
             <div className="hub-stat-icon"><GraduationCap size={18} color={eventColor} /></div>
             <div className="hub-stat-number">{statExhibitors.value}+</div>
-            <div className="hub-stat-label">Exhibitors</div>
+            <div className="hub-stat-label">Partners & Exhibitors</div>
           </div>
-          <div className="hub-stat-card">
+          <div className="hub-stat-card clickable" onClick={() => setShowCountriesModal(true)}>
             <div className="hub-stat-icon"><Globe size={18} color={eventColor} /></div>
             <div className="hub-stat-number">{statCountries.value}+</div>
             <div className="hub-stat-label">Countries</div>
@@ -432,12 +446,19 @@ export default function EventDetail() {
         </div>
       </div>
 
+      <CountriesModal 
+        isOpen={showCountriesModal} 
+        onClose={() => setShowCountriesModal(false)}
+        exhibitors={exhibitors}
+        eventColor={eventColor}
+      />
+
       {/* ═══ STICKY TABS ═══ */}
       <div className="hub-tabs-wrapper" ref={tabsRef}>
         <div className="hub-tabs">
           {[
             { id: 'overview', label: 'Overview', icon: <Compass size={15} /> },
-            { id: 'exhibitors', label: 'Exhibitors', icon: <GraduationCap size={15} />, count: exhibitors.length },
+            { id: 'exhibitors', label: 'Partners & Exhibitors', icon: <GraduationCap size={15} />, count: exhibitors.length },
             { id: 'schedule', label: 'Schedule', icon: <CalendarClock size={15} /> },
             { id: 'comments', label: 'Comments', icon: <MessageCircle size={15} />, count: comments.length },
           ].map(tab => (
@@ -486,7 +507,7 @@ export default function EventDetail() {
 
         {/* ── EXHIBITORS SECTION ── */}
         <div className="hub-section" ref={exhibitorsRef} id="section-exhibitors">
-          <h2 className="hub-section-title"><GraduationCap size={20} className="title-icon" /> Exhibitors</h2>
+          <h2 className="hub-section-title"><GraduationCap size={20} className="title-icon" /> Partners and Exhibitors</h2>
 
           {isAdmin && (
             <div className="admin-manage-exhibitors">

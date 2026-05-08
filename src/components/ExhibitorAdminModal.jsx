@@ -13,6 +13,13 @@ export const SPONSOR_TYPES = [
   'Others (Please specify)'
 ];
 
+export const ALL_COUNTRIES = [
+  'United Arab Emirates', 'Saudi Arabia', 'Qatar', 'Oman', 'Kuwait', 'Bahrain',
+  'Egypt', 'Jordan', 'Lebanon', 'Turkey', 'USA', 'UK', 'Canada', 'Australia',
+  'India', 'Pakistan', 'Malaysia', 'Singapore', 'France', 'Germany', 'Spain', 
+  'Italy', 'China', 'Japan', 'Switzerland', 'Ireland', 'New Zealand', 'Other'
+].sort();
+
 export default function ExhibitorAdminModal({ isOpen, onClose, eventId, exhibitor = null, onSaved, sponsorTiers = null }) {
   const [formData, setFormData] = useState({
     name: '',
@@ -23,7 +30,8 @@ export default function ExhibitorAdminModal({ isOpen, onClose, eventId, exhibito
     country: '',
     website: '',
     videoUrl: '',
-    description: ''
+    description: '',
+    isExhibitor: true
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -38,7 +46,8 @@ export default function ExhibitorAdminModal({ isOpen, onClose, eventId, exhibito
         country: exhibitor.country || '',
         website: exhibitor.website || '',
         videoUrl: exhibitor.videoUrl || '',
-        description: exhibitor.description || ''
+        description: exhibitor.description || '',
+        isExhibitor: exhibitor.isExhibitor !== false
       });
     } else {
       setFormData({
@@ -50,7 +59,8 @@ export default function ExhibitorAdminModal({ isOpen, onClose, eventId, exhibito
         country: '',
         website: '',
         videoUrl: '',
-        description: ''
+        description: '',
+        isExhibitor: true
       });
     }
   }, [exhibitor, isOpen, sponsorTiers]);
@@ -234,6 +244,11 @@ export default function ExhibitorAdminModal({ isOpen, onClose, eventId, exhibito
     }
   };
 
+  const countryOptions = [...ALL_COUNTRIES];
+  if (formData.country && !countryOptions.includes(formData.country)) {
+    countryOptions.push(formData.country);
+  }
+
   return (
     <div className="exhibitor-modal-overlay" onClick={onClose}>
       <div className="exhibitor-modal-container" onClick={e => e.stopPropagation()}>
@@ -252,6 +267,19 @@ export default function ExhibitorAdminModal({ isOpen, onClose, eventId, exhibito
               onChange={e => setFormData({...formData, name: e.target.value})} 
               placeholder="Company Name"
             />
+          </div>
+
+          <div className="form-group" style={{ marginBottom: '20px' }}>
+            <label className="checkbox-label" style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', background: '#f8fafc', padding: '12px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
+              <input 
+                type="checkbox" 
+                checked={formData.isExhibitor} 
+                onChange={e => setFormData({...formData, isExhibitor: e.target.checked})}
+                style={{ width: '20px', height: '20px', cursor: 'pointer' }}
+              />
+              <span style={{ fontWeight: '600', color: 'var(--color-gray-800)' }}>Exhibitor?</span>
+              <small style={{ color: '#666', fontWeight: '400' }}>(Will be counted in Exhibitor & Country stats)</small>
+            </label>
           </div>
 
           <div className="form-group">
@@ -313,13 +341,17 @@ export default function ExhibitorAdminModal({ isOpen, onClose, eventId, exhibito
             <div className="form-group">
               <label>Country</label>
               <div style={{ position: 'relative' }}>
-                <MapPin size={16} style={{ position: 'absolute', left: '10px', top: '14px', color: '#888' }} />
-                <input 
+                <MapPin size={16} style={{ position: 'absolute', left: '10px', top: '14px', color: '#888', zIndex: 1 }} />
+                <select 
                   style={{ paddingLeft: '35px' }}
                   value={formData.country} 
-                  onChange={e => setFormData({...formData, country: e.target.value})} 
-                  placeholder="UAE, USA, etc."
-                />
+                  onChange={e => setFormData({...formData, country: e.target.value})}
+                >
+                  <option value="">Select Country</option>
+                  {countryOptions.map(c => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
               </div>
             </div>
             <div className="form-group">
