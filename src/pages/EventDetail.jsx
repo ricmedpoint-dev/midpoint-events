@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { ChevronLeft, Calendar, MapPin, Clock, User, MessageCircle, Heart, Send, Trash, Settings, Grid3X3, Search, Share2, GraduationCap, Globe, Compass, Users, CalendarClock, Check } from 'lucide-react';
+import { ChevronLeft, Calendar, MapPin, Clock, User, MessageCircle, Heart, Send, Trash, Settings, Grid3X3, Search, Share2, GraduationCap, Globe, Compass, Users, CalendarClock, Check, ExternalLink, Navigation } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import PlaceholderImage from '../components/PlaceholderImage';
 import RegisterModal from '../components/RegisterModal';
@@ -461,27 +461,29 @@ export default function EventDetail() {
       {/* ═══ STATS BAR ═══ */}
       <div className="hub-stats-bar-wrapper" ref={statsRef}>
         <div className="hub-stats-bar">
-          <div className="hub-stat-card clickable" onClick={() => setShowExhibitorsModal(true)}>
-            <div className="hub-stat-icon"><GraduationCap size={18} color={eventColor} /></div>
+          <div className={`hub-stat-card ${statExhibitors.value > 0 ? 'clickable' : ''}`} onClick={statExhibitors.value > 0 ? () => setShowExhibitorsModal(true) : null}>
+            <div className="hub-stat-icon"><GraduationCap size={18} color="white" /></div>
             <div className="hub-stat-number">
               {exhibitorsLoading ? <div className="loading-spinner-mini" style={{ borderTopColor: eventColor }} /> : `${statExhibitors.value}+`}
             </div>
             <div className="hub-stat-label">Partners & Exhibitors</div>
+            {!exhibitorsLoading && statExhibitors.value > 0 && <div className="hub-stat-hint" style={{ background: eventColor }}>View All</div>}
           </div>
-          <div className="hub-stat-card clickable" onClick={() => setShowCountriesModal(true)}>
-            <div className="hub-stat-icon"><Globe size={18} color={eventColor} /></div>
+          <div className={`hub-stat-card ${statCountries.value > 0 ? 'clickable' : ''}`} onClick={statCountries.value > 0 ? () => setShowCountriesModal(true) : null}>
+            <div className="hub-stat-icon"><Globe size={18} color="white" /></div>
             <div className="hub-stat-number">
               {exhibitorsLoading ? <div className="loading-spinner-mini" style={{ borderTopColor: eventColor }} /> : `${statCountries.value}+`}
             </div>
             <div className="hub-stat-label">Countries</div>
+            {!exhibitorsLoading && statCountries.value > 0 && <div className="hub-stat-hint" style={{ background: eventColor }}>View List</div>}
           </div>
           <div className={`hub-stat-card ${isAdmin ? 'clickable admin-editable' : ''}`} onClick={isAdmin ? handleEditVisitors : null}>
-            <div className="hub-stat-icon"><Users size={18} color={eventColor} /></div>
+            <div className="hub-stat-icon"><Users size={18} color="white" /></div>
             <div className="hub-stat-number">
               {loading ? <div className="loading-spinner-mini" style={{ borderTopColor: eventColor }} /> : (statVisitors.value > 999 ? `${(statVisitors.value / 1000).toFixed(0)}K+` : `${statVisitors.value}+`)}
             </div>
             <div className="hub-stat-label">Visitors</div>
-            {isAdmin && <div className="hub-stat-hint">Edit Count</div>}
+            {isAdmin && <div className="hub-stat-hint" style={{ background: eventColor }}>Edit</div>}
           </div>
         </div>
       </div>
@@ -529,6 +531,66 @@ export default function EventDetail() {
           <div className="hub-description">
             {event.description ? event.description.split('\n').map((line, i) => <p key={i}>{line}</p>) : <p>No description available.</p>}
           </div>
+
+          {/* ── LOCATION INFOGRAPHIC ── */}
+          {event.location && (
+            <div className="location-infographic">
+              <h3 className="hub-section-title" style={{ fontSize: '1.1rem' }}>
+                <MapPin size={20} className="title-icon" /> Event Location
+              </h3>
+              <div className="location-card">
+                <div className="location-map-container">
+                  <iframe
+                    title="Event Location Map"
+                    width="100%"
+                    height="100%"
+                    style={{ border: 0, borderRadius: '16px 16px 0 0' }}
+                    loading="lazy"
+                    referrerPolicy="no-referrer-when-downgrade"
+                    src={`https://www.google.com/maps/embed/v1/place?key=AIzaSyBFw0Qbyq9zTFTd-tUY6dZWTgaQzuU17R8&q=${encodeURIComponent(event.location)}&zoom=14&maptype=roadmap`}
+                    allowFullScreen
+                  />
+                  <div className="location-map-overlay" />
+                </div>
+
+                <div className="location-details">
+                  <div className="location-info-row">
+                    <div className="location-icon-circle" style={{ background: `${eventColor}15`, color: eventColor }}>
+                      <MapPin size={20} />
+                    </div>
+                    <div className="location-text">
+                      <div className="location-venue-name">{event.venue || event.location.split(',')[0]}</div>
+                      <div className="location-address">{event.location}</div>
+                    </div>
+                  </div>
+
+                  {event.date && (
+                    <div className="location-info-row">
+                      <div className="location-icon-circle" style={{ background: `${eventColor}15`, color: eventColor }}>
+                        <Calendar size={20} />
+                      </div>
+                      <div className="location-text">
+                        <div className="location-venue-name">{event.date}</div>
+                        {event.eventTime && <div className="location-address">{event.eventTime}</div>}
+                      </div>
+                    </div>
+                  )}
+
+                  <a
+                    className="location-maps-btn"
+                    href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.location)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ background: eventColor }}
+                  >
+                    <Navigation size={18} />
+                    Show in Google Maps
+                    <ExternalLink size={14} />
+                  </a>
+                </div>
+              </div>
+            </div>
+          )}
 
           <h3 className="hub-section-title" style={{ fontSize: '1.1rem' }}>Why Attend?</h3>
           <div className="why-attend-grid">
