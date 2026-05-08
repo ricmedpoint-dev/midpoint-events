@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { ChevronLeft, ChevronRight, Calendar, MapPin, Clock, User, MessageCircle, Heart, Send, Trash, Settings, Grid3X3, Search, Share2, GraduationCap, Globe, Compass, Users, CalendarClock, Check, ExternalLink, Navigation, Image, Mic, Play } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar, MapPin, Clock, User, MessageCircle, Heart, Send, Trash, Settings, Grid3X3, Search, Share2, GraduationCap, Globe, Compass, Users, CalendarClock, Check, ExternalLink, Navigation, Image, Mic, Play, Coins } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import PlaceholderImage from '../components/PlaceholderImage';
 import RegisterModal from '../components/RegisterModal';
@@ -33,10 +33,10 @@ const DEFAULT_TIERS = [
 ];
 
 const WHY_ATTEND_DEFAULTS = [
-  { icon: '🎓', title: 'Meet Top Universities', desc: 'Connect with prestigious institutions from around the world', bg: '#EEF2FF' },
-  { icon: '💰', title: 'Scholarship Opportunities', desc: 'Discover financial aid and scholarship programs available', bg: '#FEF3C7' },
-  { icon: '🧭', title: 'Career Guidance', desc: 'Get expert counseling on career paths and academic planning', bg: '#ECFDF5' },
-  { icon: '🤝', title: 'Networking', desc: 'Build connections with educators, students, and industry leaders', bg: '#FDF2F8' },
+  { icon: 'GraduationCap', title: 'Meet Top Universities', desc: 'Connect with prestigious institutions from around the world', bg: '#EEF2FF' },
+  { icon: 'Coins', title: 'Scholarship Opportunities', desc: 'Discover financial aid and scholarship programs available', bg: '#FEF3C7' },
+  { icon: 'Compass', title: 'Career Guidance', desc: 'Get expert counseling on career paths and academic planning', bg: '#ECFDF5' },
+  { icon: 'Users', title: 'Networking', desc: 'Build connections with educators, students, and industry leaders', bg: '#FDF2F8' },
 ];
 
 const DEFAULT_SCHEDULE = [];
@@ -643,13 +643,29 @@ export default function EventDetail() {
 
           <h3 className="hub-section-title" style={{ fontSize: '1.1rem' }}>Why Attend?</h3>
           <div className="why-attend-grid">
-            {whyAttend.map((item, i) => (
-              <div key={i} className="why-card">
-                <div className="why-card-icon" style={{ background: item.bg || '#f0f0f0' }}>{item.icon}</div>
-                <div className="why-card-title">{item.title}</div>
-                <div className="why-card-desc">{item.desc || item.description}</div>
-              </div>
-            ))}
+            {whyAttend.map((item, i) => {
+              const getIcon = (iconName) => {
+                const icons = {
+                  GraduationCap: <GraduationCap size={24} />,
+                  Coins: <Coins size={24} />,
+                  Compass: <Compass size={24} />,
+                  Users: <Users size={24} />,
+                  Handshake: <Users size={24} />
+                };
+                if (icons[iconName]) return icons[iconName];
+                return <span style={{ fontSize: '24px' }}>{iconName}</span>;
+              };
+
+              return (
+                <div key={i} className="why-card">
+                  <div className="why-card-icon" style={{ background: `${eventColor}10`, color: eventColor }}>
+                    {getIcon(item.icon)}
+                  </div>
+                  <div className="why-card-title">{item.title}</div>
+                  <div className="why-card-desc">{item.desc || item.description}</div>
+                </div>
+              );
+            })}
           </div>
 
           <div className="hub-quick-actions">
