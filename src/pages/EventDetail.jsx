@@ -11,10 +11,12 @@ import TierSettingsModal from '../components/TierSettingsModal';
 import FloorPlanBuilder from '../components/FloorPlanBuilder';
 import FloorPlanViewer from '../components/FloorPlanViewer';
 import CountriesModal from '../components/CountriesModal';
+import ExhibitorsListModal from '../components/ExhibitorsListModal';
 import '../styles/Exhibitors.css';
 import { 
   getEventBySlug, toggleLike, checkIfLiked, addComment, 
-  subscribeToComments, deleteComment, getExhibitorsByEvent, getFloorPlan 
+  subscribeToComments, deleteComment, getExhibitorsByEvent, getFloorPlan,
+  updateEventStats 
 } from '../firebase/firestore';
 
 const DEFAULT_TIERS = [
@@ -166,6 +168,7 @@ export default function EventDetail() {
   const [hasFloorPlan, setHasFloorPlan] = useState(false);
   const [floorPlanLoading, setFloorPlanLoading] = useState(true);
   const [showCountriesModal, setShowCountriesModal] = useState(false);
+  const [showExhibitorsModal, setShowExhibitorsModal] = useState(false);
   const [selectedExhibitor, setSelectedExhibitor] = useState(null);
   const [exhibitors, setExhibitors] = useState([]);
   const [exhibitorsLoading, setExhibitorsLoading] = useState(true);
@@ -374,6 +377,36 @@ export default function EventDetail() {
     }
   };
 
+  const handleEditVisitors = async () => {
+    const currentVisitors = event?.stats?.visitors || 5000;
+    const newCount = window.prompt(`Update Visitor Count for ${event?.title}:`, currentVisitors);
+    
+    if (newCount !== null && !isNaN(newCount) && newCount !== "") {
+      try {
+        const parsedCount = parseInt(newCount);
+        // Optimistic update
+        setEvent(prev => ({
+          ...prev,
+          stats: {
+            ...(prev?.stats || {}),
+            visitors: parsedCount
+          }
+        }));
+
+        await updateEventStats(event.id, event._collection || 'events', parsedCount);
+        
+        // Final refresh of data from server to ensure sync
+        await loadEventData(false);
+        alert("Visitor count updated successfully!");
+      } catch (err) {
+        console.error("Update failed:", err);
+        alert("Failed to update visitor count. Document might not exist or permissions issue.");
+        // Revert on failure
+        loadEventData(false);
+      }
+    }
+  };
+
   if (loading) return <div className="loading-state">Loading...</div>;
   if (!event) return <div className="error-state">Event not found.</div>;
 
@@ -428,20 +461,27 @@ export default function EventDetail() {
       {/* ═══ STATS BAR ═══ */}
       <div className="hub-stats-bar-wrapper" ref={statsRef}>
         <div className="hub-stats-bar">
-          <div className="hub-stat-card">
+          <div className="hub-stat-card clickable" onClick={() => setShowExhibitorsModal(true)}>
             <div className="hub-stat-icon"><GraduationCap size={18} color={eventColor} /></div>
-            <div className="hub-stat-number">{statExhibitors.value}+</div>
+            <div className="hub-stat-number">
+              {exhibitorsLoading ? <div className="loading-spinner-mini" style={{ borderTopColor: eventColor }} /> : `${statExhibitors.value}+`}
+            </div>
             <div className="hub-stat-label">Partners & Exhibitors</div>
           </div>
           <div className="hub-stat-card clickable" onClick={() => setShowCountriesModal(true)}>
             <div className="hub-stat-icon"><Globe size={18} color={eventColor} /></div>
-            <div className="hub-stat-number">{statCountries.value}+</div>
+            <div className="hub-stat-number">
+              {exhibitorsLoading ? <div className="loading-spinner-mini" style={{ borderTopColor: eventColor }} /> : `${statCountries.value}+`}
+            </div>
             <div className="hub-stat-label">Countries</div>
           </div>
-          <div className="hub-stat-card">
+          <div className={`hub-stat-card ${isAdmin ? 'clickable admin-editable' : ''}`} onClick={isAdmin ? handleEditVisitors : null}>
             <div className="hub-stat-icon"><Users size={18} color={eventColor} /></div>
-            <div className="hub-stat-number">{statVisitors.value > 999 ? `${(statVisitors.value / 1000).toFixed(0)}K` : statVisitors.value}+</div>
+            <div className="hub-stat-number">
+              {loading ? <div className="loading-spinner-mini" style={{ borderTopColor: eventColor }} /> : (statVisitors.value > 999 ? `${(statVisitors.value / 1000).toFixed(0)}K+` : `${statVisitors.value}+`)}
+            </div>
             <div className="hub-stat-label">Visitors</div>
+            {isAdmin && <div className="hub-stat-hint">Edit Count</div>}
           </div>
         </div>
       </div>
@@ -451,6 +491,14 @@ export default function EventDetail() {
         onClose={() => setShowCountriesModal(false)}
         exhibitors={exhibitors}
         eventColor={eventColor}
+      />
+
+      <ExhibitorsListModal
+        isOpen={showExhibitorsModal}
+        onClose={() => setShowExhibitorsModal(false)}
+        exhibitors={exhibitors}
+        eventColor={eventColor}
+        sponsorTiers={event?.sponsorTiers}
       />
 
       {/* ═══ STICKY TABS ═══ */}

@@ -90,6 +90,14 @@ export async function getEventBySlug(slug) {
   return null;
 }
 
+export async function updateEventStats(id, collectionName, visitorCount) {
+  const docRef = doc(db, collectionName, id);
+  await updateDoc(docRef, {
+    "stats.visitors": parseInt(visitorCount),
+    updatedAt: new Date().toISOString()
+  });
+}
+
 // ── Exhibitors ──
 export async function getExhibitors() {
   const q = query(collection(db, 'exhibitors'), orderBy('order', 'asc'));
