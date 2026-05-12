@@ -11,6 +11,8 @@ const MAX_ZOOM = 2.5;
 const ZOOM_STEP = 0.15;
 
 const DEFAULT_COLORS = ['#3B82F6', '#EF4444', '#10B981', '#F59E0B', '#8B5CF6', '#EC4899', '#06B6D4', '#F97316'];
+const OCCUPIED_DEFAULT_COLOR = '#adb5bd'; // Light gray for occupied booths without tier color
+const AVAILABLE_DEFAULT_COLOR = '#ffffff'; // White for available/unassigned booths
 
 function generateId() {
   return 'booth-' + Math.random().toString(36).substr(2, 9);
@@ -27,12 +29,19 @@ export default function FloorPlanBuilder({ isOpen, onClose, eventId, onSaved, ex
     }
 
     if (exhibitor) {
+      // Occupied: use tier color only if useTierColor is ON and a matching tier exists
+      let resolvedColor = OCCUPIED_DEFAULT_COLOR;
+      if (booth.useTierColor !== false && exhibitor.sponsorType) {
+        const tier = sponsorTiers.find(t => t.label === exhibitor.sponsorType);
+        if (tier) resolvedColor = tier.color;
+      }
       return {
         ...booth,
         name: exhibitor.name,
         logo: exhibitor.logo,
         sponsorType: exhibitor.sponsorType,
-        exhibitorId: exhibitor.id
+        exhibitorId: exhibitor.id,
+        color: resolvedColor
       };
     }
 
@@ -43,12 +52,17 @@ export default function FloorPlanBuilder({ isOpen, onClose, eventId, onSaved, ex
         name: 'Available',
         logo: null,
         sponsorType: null,
-        color: '#f1f3f5'
+        color: AVAILABLE_DEFAULT_COLOR
       };
     }
 
-    return booth;
-  }, [exhibitors]);
+    // 4. No exhibitor link — available or manually named booth
+    const isAvailable = !booth.name || booth.name === 'Available' || booth.name === 'TBD';
+    return {
+      ...booth,
+      color: isAvailable ? AVAILABLE_DEFAULT_COLOR : OCCUPIED_DEFAULT_COLOR
+    };
+  }, [exhibitors, sponsorTiers]);
   // Grid dimensions
   const [gridWidth, setGridWidth] = useState(20);
   const [gridHeight, setGridHeight] = useState(15);
@@ -449,10 +463,12 @@ export default function FloorPlanBuilder({ isOpen, onClose, eventId, onSaved, ex
     if (exhibitor) {
       let color = prevBoothColor.current || newBooth.color;
 
-      // If useTierColor is enabled, find the tier color
+      // If useTierColor is enabled, find the tier color or use occupied default
       if (newBooth.useTierColor) {
-        const tier = sponsorTiers.find(t => t.label === exhibitor.sponsorType);
-        if (tier) color = tier.color;
+        const tier = exhibitor.sponsorType
+          ? sponsorTiers.find(t => t.label === exhibitor.sponsorType)
+          : null;
+        color = tier ? tier.color : OCCUPIED_DEFAULT_COLOR;
       }
 
       setNewBooth(prev => ({
@@ -473,14 +489,14 @@ export default function FloorPlanBuilder({ isOpen, onClose, eventId, onSaved, ex
     setNewBooth(prev => {
       let newColor = prev.color;
       if (checked) {
-        // Find current exhibitor tier color
+        // Find current exhibitor tier color or use occupied default
         const exhibitor = exhibitors.find(ex => ex.name === prev.name);
         if (exhibitor) {
-          const tier = sponsorTiers.find(t => t.label === exhibitor.sponsorType);
-          if (tier) {
-            prevBoothColor.current = prev.color; // Save manual color
-            newColor = tier.color;
-          }
+          prevBoothColor.current = prev.color; // Save manual color
+          const tier = exhibitor.sponsorType
+            ? sponsorTiers.find(t => t.label === exhibitor.sponsorType)
+            : null;
+          newColor = tier ? tier.color : OCCUPIED_DEFAULT_COLOR;
         }
       } else if (prevBoothColor.current) {
         newColor = prevBoothColor.current;
@@ -562,6 +578,15 @@ export default function FloorPlanBuilder({ isOpen, onClose, eventId, onSaved, ex
     });
     setDragging(booth.id);
   }, [getGridCoords]);
+
+  // Auto-scroll sidebar to selected booth
+  useEffect(() => {
+    if (!selectedBoothId) return;
+    const el = document.querySelector(`.fp-booth-item[data-booth-id="${selectedBoothId}"]`);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  }, [selectedBoothId]);
 
   const handlePointerMove = useCallback((e) => {
     if (dragging) {
@@ -782,6 +807,7 @@ export default function FloorPlanBuilder({ isOpen, onClose, eventId, onSaved, ex
                   return (
                     <div
                       key={b.id}
+                      data-booth-id={b.id}
                       className={`fp-booth-item ${selectedBoothId === b.id ? 'active' : ''}`}
                       onClick={() => setSelectedBoothId(b.id)}
                       draggable

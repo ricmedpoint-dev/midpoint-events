@@ -10,6 +10,8 @@ const MIN_ZOOM = 0.2;
 const MAX_ZOOM = 3;
 const ZOOM_STEP = 0.15;
 const GATE_PADDING = 60; // px of white space outside the grid for entrance/exit markers
+const OCCUPIED_DEFAULT_COLOR = '#adb5bd'; // Light gray for occupied booths without tier color
+const AVAILABLE_DEFAULT_COLOR = '#ffffff'; // White for available/unassigned booths
 
 const loadImage = (url) => {
   return new Promise((resolve, reject) => {
@@ -32,12 +34,19 @@ export default function FloorPlanViewer({ isOpen, onClose, eventId, sponsorTiers
     }
 
     if (exhibitor) {
+      // Occupied: use tier color only if useTierColor is ON and a matching tier exists
+      let resolvedColor = OCCUPIED_DEFAULT_COLOR;
+      if (booth.useTierColor !== false && exhibitor.sponsorType) {
+        const tier = sponsorTiers.find(t => t.label === exhibitor.sponsorType);
+        if (tier) resolvedColor = tier.color;
+      }
       return {
         ...booth,
         name: exhibitor.name,
         logo: exhibitor.logo,
         sponsorType: exhibitor.sponsorType,
-        exhibitorId: exhibitor.id // Ensure ID is present for future
+        exhibitorId: exhibitor.id,
+        color: resolvedColor
       };
     }
 
@@ -48,12 +57,17 @@ export default function FloorPlanViewer({ isOpen, onClose, eventId, sponsorTiers
         name: 'Available',
         logo: null,
         sponsorType: null,
-        color: '#f1f3f5'
+        color: AVAILABLE_DEFAULT_COLOR
       };
     }
 
-    return booth;
-  }, [exhibitors]);
+    // 4. No exhibitor link — available or manually named booth
+    const isAvailable = !booth.name || booth.name === 'Available' || booth.name === 'TBD';
+    return {
+      ...booth,
+      color: isAvailable ? AVAILABLE_DEFAULT_COLOR : OCCUPIED_DEFAULT_COLOR
+    };
+  }, [exhibitors, sponsorTiers]);
   const [floorPlan, setFloorPlan] = useState(null);
   const [loading, setLoading] = useState(true);
   const [detailBooth, setDetailBooth] = useState(null);
@@ -839,7 +853,7 @@ const Booth = memo(({ booth, onDetail, isFocused }) => {
         height: `${bH}px`,
         background: booth.color,
         color: textColor,
-        boxShadow: isFocused ? '0 0 0 3px #ffffff, 0 0 0 6px var(--color-primary), 0 0 20px rgba(0,0,0,0.3)' : 'none',
+        boxShadow: isFocused ? '0 0 0 3px #ffffff, 0 0 0 6px var(--color-primary), 0 0 20px rgba(0,0,0,0.3)' : undefined,
         zIndex: isFocused ? 50 : 1,
         transition: 'all 0.3s ease'
       }}
