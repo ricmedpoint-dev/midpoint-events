@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback, memo } from 'react';
-import { X, ZoomIn, ZoomOut, Move, Grid3X3, Download, ChevronDown } from 'lucide-react';
+import { X, ZoomIn, ZoomOut, Move, Grid3X3, Download, ChevronDown, Palette } from 'lucide-react';
 import { getFloorPlan } from '../firebase/firestore';
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
@@ -24,63 +24,92 @@ const loadImage = (url) => {
 };
 
 export default function FloorPlanViewer({ isOpen, onClose, eventId, sponsorTiers = [], event, exhibitors = [] }) {
-  const resolveBoothData = useCallback((booth) => {
-    // 1. Try to find exhibitor by ID (best way)
-    let exhibitor = booth.exhibitorId ? exhibitors.find(ex => ex.id === booth.exhibitorId) : null;
-
-    // 2. If not found by ID, try matching by name (migration for existing data)
-    if (!exhibitor && booth.name && booth.name !== 'Available' && booth.name !== 'TBD') {
-      exhibitor = exhibitors.find(ex => ex.name === booth.name);
-    }
-
-    if (exhibitor) {
-      // Occupied: use tier color only if useTierColor is ON and a matching tier exists
-      let resolvedColor = OCCUPIED_DEFAULT_COLOR;
-      if (booth.useTierColor !== false && exhibitor.sponsorType) {
-        const tier = sponsorTiers.find(t => t.label === exhibitor.sponsorType);
-        if (tier) resolvedColor = tier.color;
-      }
-      return {
-        ...booth,
-        name: exhibitor.name,
-        logo: exhibitor.logo,
-        sponsorType: exhibitor.sponsorType,
-        exhibitorId: exhibitor.id,
-        color: resolvedColor
-      };
-    }
-
-    // 3. If it HAD an exhibitorId but no exhibitor was found, it was deleted
-    if (booth.exhibitorId) {
-      return {
-        ...booth,
-        name: 'Available',
-        logo: null,
-        sponsorType: null,
-        color: AVAILABLE_DEFAULT_COLOR
-      };
-    }
-
-    // 4. No exhibitor link — available or manually named booth
-    const isAvailable = !booth.name || booth.name === 'Available' || booth.name === 'TBD';
-    return {
-      ...booth,
-      color: isAvailable ? AVAILABLE_DEFAULT_COLOR : OCCUPIED_DEFAULT_COLOR
-    };
-  }, [exhibitors, sponsorTiers]);
   const [floorPlan, setFloorPlan] = useState(null);
   const [loading, setLoading] = useState(true);
   const [detailBooth, setDetailBooth] = useState(null);
   const [isExporting, setIsExporting] = useState(false);
   const [focusedBoothId, setFocusedBoothId] = useState(null);
+  const [colorMode, setColorMode] = useState('mono'); // 'mono' | 'tier' | 'booth'
 
   // Zoom/Pan
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [isPanning, setIsPanning] = useState(false);
   const panStart = useRef({ x: 0, y: 0, panX: 0, panY: 0 });
-
   const gridAreaRef = useRef(null);
+
+  // Resolve exhibitor data (name, logo, sponsorType) without color overrides
+  const resolveBoothData = useCallback((booth) => {
+    let exhibitor = booth.exhibitorId ? exhibitors.find(ex => ex.id === booth.exhibitorId) : null;
+    if (!exhibitor && booth.name && booth.name !== 'Available' && booth.name !== 'TBD') {
+      exhibitor = exhibitors.find(ex => ex.name === booth.name);
+    }
+
+    if (exhibitor) {
+      return {
+        ...booth,
+        name: exhibitor.name,
+        logo: exhibitor.logo,
+        sponsorType: exhibitor.sponsorType,
+        exhibitorId: exhibitor.id
+      };
+    }
+
+    if (booth.exhibitorId) {
+      return { ...booth, name: 'Available', logo: null, sponsorType: null };
+    }
+
+    return booth;
+  }, [exhibitors]);
+
+  // Apply color based on selected color mode
+  const applyColorMode = useCallback((booth) => {
+    const isAvailable = !booth.name || booth.name === 'Available' || booth.name === 'TBD';
+
+    if (colorMode === 'tier') {
+      // Tier Colors: use the exhibitor's sponsor tier color
+      if (isAvailable) return { ...booth, color: AVAILABLE_DEFAULT_COLOR };
+      if (booth.sponsorType) {
+        const tier = sponsorTiers.find(t => t.label === booth.sponsorType);
+        if (tier) return { ...booth, color: tier.color };
+      }
+      return { ...booth, color: OCCUPIED_DEFAULT_COLOR };
+    }
+
+    if (colorMode === 'booth') {
+      // Booth Colors: use the tier color of the booth itself, or fallback to size-based detection, then manual color
+      if (isAvailable) return { ...booth, color: AVAILABLE_DEFAULT_COLOR };
+      
+      // 1. Check explicit booth tier
+      if (booth.boothSponsorTier) {
+        const tier = sponsorTiers.find(t => t.label === booth.boothSponsorTier);
+        if (tier) return { ...booth, color: tier.color };
+      }
+
+      // 2. Fallback: Check if booth dimensions match any tier's defined size
+      const matchingSizeTier = sponsorTiers.find(t => {
+        const tW = Number(t.width);
+        const tH = Number(t.height);
+        const bW = Number(booth.widthM);
+        const bH = Number(booth.heightM);
+        return (tW && tH) && (
+          (tW === bW && tH === bH) || 
+          (tW === bH && tH === bW)
+        );
+      });
+      if (matchingSizeTier) return { ...booth, color: matchingSizeTier.color };
+
+      return { ...booth, color: booth.color || OCCUPIED_DEFAULT_COLOR };
+    }
+
+    // Mono (default): white for available, tier if enabled, gray otherwise
+    if (isAvailable) return { ...booth, color: AVAILABLE_DEFAULT_COLOR };
+    if (booth.useTierColor !== false && booth.sponsorType) {
+      const tier = sponsorTiers.find(t => t.label === booth.sponsorType);
+      if (tier) return { ...booth, color: tier.color };
+    }
+    return { ...booth, color: OCCUPIED_DEFAULT_COLOR };
+  }, [colorMode, sponsorTiers]);
 
   // Load floor plan
   useEffect(() => {
@@ -470,7 +499,7 @@ export default function FloorPlanViewer({ isOpen, onClose, eventId, sponsorTiers
 
   const gridWidth = floorPlan?.width || 0;
   const gridHeight = floorPlan?.height || 0;
-  const booths = (floorPlan?.booths || []).map(resolveBoothData);
+  const booths = (floorPlan?.booths || []).map(b => applyColorMode(resolveBoothData(b)));
   const gridPxW = gridWidth * CELL_SIZE;
   const gridPxH = gridHeight * CELL_SIZE;
 
@@ -489,11 +518,22 @@ export default function FloorPlanViewer({ isOpen, onClose, eventId, sponsorTiers
             )}
           </div>
           <div className="fp-topbar-actions">
+            <div className="fp-color-mode-select">
+              <Palette size={15} style={{ color: '#868e96', flexShrink: 0 }} />
+              <select
+                value={colorMode}
+                onChange={e => setColorMode(e.target.value)}
+                className="fp-color-mode-dropdown"
+              >
+                <option value="mono">Mono Color</option>
+                <option value="tier">Tier Colors</option>
+                <option value="booth">Booth Colors</option>
+              </select>
+            </div>
             <button
               className="fp-btn fp-btn-secondary"
               onClick={handleExportPDF}
               disabled={isExporting}
-              style={{ marginRight: '8px' }}
             >
               <Download size={16} style={{ marginRight: '6px' }} />
               {isExporting ? 'Exporting...' : 'Export PDF'}

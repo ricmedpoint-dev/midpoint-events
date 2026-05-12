@@ -97,7 +97,8 @@ export default function FloorPlanBuilder({ isOpen, onClose, eventId, onSaved, ex
     color: DEFAULT_COLORS[0],
     useTierColor: true,
     logo: null,
-    exhibitorId: null
+    exhibitorId: null,
+    boothSponsorTier: ''
   });
 
   // Drag state
@@ -323,7 +324,8 @@ export default function FloorPlanBuilder({ isOpen, onClose, eventId, onSaved, ex
           color: newBooth.color,
           useTierColor: newBooth.useTierColor,
           logo: exhibitor ? newBooth.logo : null, // Enforce no logo for manual
-          exhibitorId: exhibitor ? newBooth.exhibitorId : null
+          exhibitorId: exhibitor ? newBooth.exhibitorId : null,
+          boothSponsorTier: newBooth.boothSponsorTier
         };
       }));
       setEditingBoothId(null);
@@ -340,6 +342,7 @@ export default function FloorPlanBuilder({ isOpen, onClose, eventId, onSaved, ex
         useTierColor: newBooth.useTierColor,
         logo: exhibitor ? newBooth.logo : null, // Enforce no logo for manual
         exhibitorId: exhibitor ? newBooth.exhibitorId : null,
+        boothSponsorTier: newBooth.boothSponsorTier,
         x: 0,
         y: 0,
         rotation: 0
@@ -361,7 +364,8 @@ export default function FloorPlanBuilder({ isOpen, onClose, eventId, onSaved, ex
       color: DEFAULT_COLORS[0],
       useTierColor: true,
       logo: null,
-      exhibitorId: null
+      exhibitorId: null,
+      boothSponsorTier: ''
     });
     setIsManualExhibitor(false);
   };
@@ -377,7 +381,8 @@ export default function FloorPlanBuilder({ isOpen, onClose, eventId, onSaved, ex
       color: booth.color,
       useTierColor: booth.useTierColor !== undefined ? booth.useTierColor : true,
       logo: booth.logo || null,
-      exhibitorId: booth.exhibitorId || null
+      exhibitorId: booth.exhibitorId || null,
+      boothSponsorTier: booth.boothSponsorTier || ''
     });
     // If not in exhibitors list and not 'Available', mark as manual
     const inList = exhibitors.some(ex => ex.name === booth.name);
@@ -400,6 +405,7 @@ export default function FloorPlanBuilder({ isOpen, onClose, eventId, onSaved, ex
       useTierColor: booth.useTierColor !== undefined ? booth.useTierColor : true,
       logo: null,
       exhibitorId: null,
+      boothSponsorTier: booth.boothSponsorTier || '',
       sponsorType: '',
       rotation: booth.rotation || 0,
       x: Math.min(gridWidth - booth.widthM, booth.x + 1),
@@ -965,6 +971,39 @@ export default function FloorPlanBuilder({ isOpen, onClose, eventId, onSaved, ex
                         autoFocus
                       />
                     )}
+                  </div>
+                  <div className="fp-input-group">
+                    <label>Booth Tier (Optional)</label>
+                    <select
+                      value={newBooth.boothSponsorTier}
+                      onChange={e => {
+                        const tierLabel = e.target.value;
+                        let color = newBooth.color;
+                        let w = newBooth.widthM;
+                        let h = newBooth.heightM;
+                        if (tierLabel) {
+                          const tier = sponsorTiers.find(t => t.label === tierLabel);
+                          if (tier) {
+                            color = tier.color;
+                            if (tier.width) w = tier.width;
+                            if (tier.height) h = tier.height;
+                          }
+                        }
+                        setNewBooth(prev => ({ 
+                          ...prev, 
+                          boothSponsorTier: tierLabel, 
+                          color: color, 
+                          widthM: w,
+                          heightM: h,
+                          useTierColor: !tierLabel 
+                        }));
+                      }}
+                    >
+                      <option value="">No Specific Tier</option>
+                      {sponsorTiers.map(tier => (
+                        <option key={tier.id} value={tier.label}>{tier.label}</option>
+                      ))}
+                    </select>
                   </div>
                 </div>
                 <div className="fp-form-row">

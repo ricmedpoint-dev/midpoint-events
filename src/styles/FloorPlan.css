@@ -788,6 +788,35 @@
   opacity: 0.3;
 }
 
+/* ── Color Mode Selector (Viewer) ── */
+.fp-color-mode-select {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  background: #f1f3f5;
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  margin-right: 8px;
+}
+
+.fp-color-mode-dropdown {
+  border: none;
+  background: transparent;
+  font-size: 0.82rem;
+  font-weight: 600;
+  font-family: var(--font-body, 'Inter', sans-serif);
+  color: #495057;
+  cursor: pointer;
+  padding: 0 2px;
+  outline: none;
+  appearance: auto;
+}
+
+.fp-color-mode-dropdown:focus {
+  outline: none;
+}
+
 /* ── "View Floor Plan" Button (on event page) ── */
 .fp-view-btn-section {
   margin-top: 24px;

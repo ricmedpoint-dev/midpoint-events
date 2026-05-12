@@ -133,6 +133,29 @@ export default function TierSettingsModal({ isOpen, onClose, event, onSaved }) {
                   />
                 </div>
 
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                    <span style={{ fontSize: '0.65rem', color: '#94a3b8', fontWeight: 600 }}>W (m)</span>
+                    <input 
+                      type="number" 
+                      value={tier.width || ''} 
+                      onChange={e => updateTier(index, 'width', e.target.value === '' ? null : (parseInt(e.target.value) || 1))}
+                      placeholder="W"
+                      style={{ width: '45px', fontSize: '0.85rem', padding: '6px' }}
+                    />
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                    <span style={{ fontSize: '0.65rem', color: '#94a3b8', fontWeight: 600 }}>H (m)</span>
+                    <input 
+                      type="number" 
+                      value={tier.height || ''} 
+                      onChange={e => updateTier(index, 'height', e.target.value === '' ? null : (parseInt(e.target.value) || 1))}
+                      placeholder="H"
+                      style={{ width: '45px', fontSize: '0.85rem', padding: '6px' }}
+                    />
+                  </div>
+                </div>
+
                 <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
                   <input 
                     type="color" 
