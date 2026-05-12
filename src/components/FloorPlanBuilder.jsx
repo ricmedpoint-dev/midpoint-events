@@ -937,9 +937,23 @@ export default function FloorPlanBuilder({ isOpen, onClose, eventId, onSaved, ex
                       onChange={handleExhibitorSelect}
                     >
                       <option value="">Select Exhibitor (Optional)</option>
-                      {exhibitors.map(ex => (
-                        <option key={ex.id} value={ex.name}>{ex.name}</option>
-                      ))}
+                      {exhibitors.map(ex => {
+                        // Check if this exhibitor is already assigned to another booth
+                        const assignedBooth = booths.find(b =>
+                          b.id !== editingBoothId &&
+                          (b.exhibitorId === ex.id || (b.name === ex.name && b.name !== 'Available' && b.name !== 'TBD'))
+                        );
+                        const isAssigned = !!assignedBooth;
+                        return (
+                          <option
+                            key={ex.id}
+                            value={ex.name}
+                            disabled={isAssigned}
+                          >
+                            {ex.name}{isAssigned ? ` (Booth ${assignedBooth.boothNumber})` : ''}
+                          </option>
+                        );
+                      })}
                       <option value="CUSTOM_OTHER">-- Other / Manual --</option>
                     </select>
                     {isManualExhibitor && (
