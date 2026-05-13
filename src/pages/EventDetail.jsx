@@ -328,6 +328,14 @@ export default function EventDetail() {
     loadEventData(true);
   }, [slug]);
 
+  // Disable body scroll when event detail is open
+  useEffect(() => {
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, []);
+
   const fetchExhibitors = async () => {
     if (!event?.id) return;
     try { const data = await getExhibitorsByEvent(event.id); setExhibitors(data); }
