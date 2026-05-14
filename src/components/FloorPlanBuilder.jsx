@@ -118,6 +118,7 @@ export default function FloorPlanBuilder({ isOpen, onClose, eventId, onSaved, ex
   const [initialData, setInitialData] = useState(null);
   const [showExitConfirm, setShowExitConfirm] = useState(false);
   const [isManualExhibitor, setIsManualExhibitor] = useState(false);
+  const [isVisible, setIsVisible] = useState(true);
 
   const gridRef = useRef(null);
   const gridAreaRef = useRef(null);
@@ -147,13 +148,15 @@ export default function FloorPlanBuilder({ isOpen, onClose, eventId, onSaved, ex
 
         setBooths(migratedBooths);
         setGates(data.gates || []);
+        setIsVisible(data.isVisible !== undefined ? data.isVisible : true);
 
         // Save initial state for change detection
         setInitialData({
           width: w,
           height: h,
           booths: migratedBooths,
-          gates: data.gates || []
+          gates: data.gates || [],
+          isVisible: data.isVisible !== undefined ? data.isVisible : true
         });
       } else {
         setGridWidth(20);
@@ -162,6 +165,7 @@ export default function FloorPlanBuilder({ isOpen, onClose, eventId, onSaved, ex
         setGridHeightInput('15');
         setBooths([]);
         setGates([]);
+        setIsVisible(true);
       }
       setLoading(false);
     }).catch(() => setLoading(false));
@@ -211,7 +215,8 @@ export default function FloorPlanBuilder({ isOpen, onClose, eventId, onSaved, ex
         width: gridWidth,
         height: gridHeight,
         booths,
-        gates
+        gates,
+        isVisible
       };
       await saveFloorPlan(eventId, dataToSave);
       setInitialData(dataToSave); // Update initial state after save
@@ -229,7 +234,8 @@ export default function FloorPlanBuilder({ isOpen, onClose, eventId, onSaved, ex
       width: gridWidth,
       height: gridHeight,
       booths,
-      gates
+      gates,
+      isVisible
     };
 
     // Check for changes (using stringify for deep comparison)
@@ -744,6 +750,35 @@ export default function FloorPlanBuilder({ isOpen, onClose, eventId, onSaved, ex
             <h2>Floor Plan Builder</h2>
           </div>
           <div className="fp-topbar-actions">
+            <div className="fp-topbar-toggle" style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '8px', 
+              padding: '6px 12px', 
+              background: isVisible ? 'rgba(16, 185, 129, 0.1)' : 'rgba(245, 158, 11, 0.1)', 
+              borderRadius: '20px',
+              border: `1px solid ${isVisible ? 'rgba(16, 185, 129, 0.2)' : 'rgba(245, 158, 11, 0.2)'}`,
+              marginRight: '8px',
+              transition: 'all 0.2s ease'
+            }}>
+              <input
+                type="checkbox"
+                id="fp-visibility-toggle-top"
+                checked={isVisible}
+                onChange={(e) => setIsVisible(e.target.checked)}
+                style={{ width: '14px', height: '14px', cursor: 'pointer' }}
+              />
+              <label htmlFor="fp-visibility-toggle-top" style={{ 
+                fontSize: '0.75rem', 
+                fontWeight: 700, 
+                color: isVisible ? '#10B981' : '#D97706', 
+                cursor: 'pointer', 
+                marginBottom: 0,
+                whiteSpace: 'nowrap'
+              }}>
+                {isVisible ? 'Visible to Public' : 'Hidden (Arranging)'}
+              </label>
+            </div>
             <button
               className="fp-btn fp-btn-primary"
               onClick={handleSave}
@@ -768,7 +803,7 @@ export default function FloorPlanBuilder({ isOpen, onClose, eventId, onSaved, ex
             <div className={`fp-sidebar ${sidebarCollapsed ? 'collapsed' : ''}`}>
               {/* Grid Setup */}
               <div className="fp-sidebar-header">
-                <h3>Hall Dimensions</h3>
+                <h3>Hall Settings</h3>
                 <div className="fp-grid-setup">
                   <div className="fp-input-group">
                     <label>Width (m)</label>

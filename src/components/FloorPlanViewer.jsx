@@ -23,7 +23,7 @@ const loadImage = (url) => {
   });
 };
 
-export default function FloorPlanViewer({ isOpen, onClose, eventId, sponsorTiers = [], event, exhibitors = [] }) {
+export default function FloorPlanViewer({ isOpen, onClose, eventId, sponsorTiers = [], event, exhibitors = [], isAdmin = false }) {
   const [floorPlan, setFloorPlan] = useState(null);
   const [loading, setLoading] = useState(true);
   const [detailBooth, setDetailBooth] = useState(null);
@@ -548,13 +548,70 @@ export default function FloorPlanViewer({ isOpen, onClose, eventId, sponsorTiers
           <div className="fp-empty-state">
             <p>Loading floor plan...</p>
           </div>
-        ) : !floorPlan ? (
-          <div className="fp-empty-state">
-            <Grid3X3 size={48} />
-            <p>No floor plan available for this event yet.</p>
+        ) : (!floorPlan || (floorPlan.isVisible === false && !isAdmin)) ? (
+          <div className="fp-empty-state" style={{ background: '#fff', borderRadius: '12px', margin: '20px', boxShadow: '0 10px 25px rgba(0,0,0,0.05)', border: '1px solid #f0f0f0' }}>
+            <div style={{ 
+              width: '80px', 
+              height: '80px', 
+              borderRadius: '50%', 
+              background: 'rgba(59, 130, 246, 0.05)', 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'center',
+              marginBottom: '24px'
+            }}>
+              <Grid3X3 size={40} style={{ color: 'var(--color-primary)', opacity: 0.8 }} />
+            </div>
+            <h3 style={{ 
+              fontSize: '1.5rem', 
+              fontFamily: 'var(--font-heading)', 
+              fontWeight: 800, 
+              color: '#1a1a2e', 
+              marginBottom: '12px',
+              letterSpacing: '-0.5px'
+            }}>
+              Layout Under Arrangement
+            </h3>
+            <p style={{ 
+              color: '#64748b', 
+              maxWidth: '400px', 
+              margin: '0 auto', 
+              lineHeight: 1.6,
+              fontSize: '1rem'
+            }}>
+              We are currently finalizing the perfect floor plan for this event. 
+              The exhibitor directory and booth locations will be available very soon. 
+              Stay tuned!
+            </p>
+            <div style={{ marginTop: '32px', padding: '8px 16px', background: '#f8fafc', borderRadius: '20px', fontSize: '0.85rem', color: '#94a3b8', fontWeight: 600 }}>
+              Coming Soon
+            </div>
           </div>
         ) : (
           <>
+            {floorPlan.isVisible === false && isAdmin && (
+              <div style={{
+                position: 'absolute',
+                top: '80px',
+                left: '50%',
+                transform: 'translateX(-50%)',
+                zIndex: 100,
+                background: '#FFFBEB',
+                color: '#92400E',
+                padding: '6px 12px',
+                borderRadius: '20px',
+                fontSize: '0.75rem',
+                fontWeight: 700,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                border: '1px solid #FEF3C7',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.05)'
+              }}>
+                <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#F59E0B', animation: 'pulse 2s infinite' }} />
+                PREVIEW MODE: Hidden from Public
+              </div>
+            )}
             <div className="fp-body">
               {/* Grid Area */}
               <div

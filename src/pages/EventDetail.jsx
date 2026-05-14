@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { ChevronLeft, ChevronRight, Calendar, MapPin, Clock, User, MessageCircle, Heart, Send, Trash, Settings, Grid3X3, Search, Share2, GraduationCap, Globe, Compass, Users, CalendarClock, Check, ExternalLink, Navigation, Image, Mic, Play, Coins } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar, MapPin, Clock, User, MessageCircle, Heart, Send, Trash, Settings, Grid3X3, Search, Share2, GraduationCap, Globe, Compass, Users, CalendarClock, Check, ExternalLink, Navigation, Image, Mic, Play, Coins, BookOpen, UserCircle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import PlaceholderImage from '../components/PlaceholderImage';
 import RegisterModal from '../components/RegisterModal';
@@ -189,6 +189,7 @@ export default function EventDetail() {
   const [guestName, setGuestName] = useState('');
   const [isSubmittingComment, setIsSubmittingComment] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
+  const [activeScheduleTrack, setActiveScheduleTrack] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [showShareToast, setShowShareToast] = useState(false);
 
@@ -212,19 +213,62 @@ export default function EventDetail() {
   const startDate = useMemo(() => parseEventDate(event?.date), [event?.date]);
   const endDate = useMemo(() => parseEventEndDate(event?.date), [event?.date]);
   const countdown = useCountdown(startDate, endDate);
-  const scheduleRaw = useMemo(() => event?.schedule || DEFAULT_SCHEDULE, [event?.schedule]);
+  const whyAttend = useMemo(() => event?.highlights || WHY_ATTEND_DEFAULTS, [event?.highlights]);
+
+  // Unified Schedule Logic
+  const scheduleData = useMemo(() => {
+    if (!event?.schedule) return { tracks: {}, activeTrack: '', isMultiTrack: false };
+    
+    if (Array.isArray(event.schedule)) {
+      // Old format
+      return { 
+        tracks: { 'Exhibition': event.schedule }, 
+        activeTrack: 'Exhibition',
+        isMultiTrack: false 
+      };
+    }
+    
+    // New format (object)
+    const tracks = event.schedule;
+    const trackNames = Object.keys(tracks);
+    
+    // Check if it's the new nested structure { days, color } or old [ days ]
+    const normalizedTracks = {};
+    trackNames.forEach(name => {
+      const data = tracks[name];
+      if (Array.isArray(data)) {
+        normalizedTracks[name] = { days: data, color: event?.scheduleSettings?.color || eventColor || '#E31E24' };
+      } else {
+        normalizedTracks[name] = data;
+      }
+    });
+
+    return { 
+      tracks: normalizedTracks, 
+      activeTrack: activeScheduleTrack || trackNames[0] || '',
+      isMultiTrack: trackNames.length > 1
+    };
+  }, [event?.schedule, activeScheduleTrack, event?.scheduleSettings, eventColor]);
+
   const schedule = useMemo(() => {
-    if (scheduleRaw.length > 0 && !scheduleRaw[0].items) {
+    // For the day selector, we'll use the first track as a reference for the number of days
+    const firstTrackName = Object.keys(scheduleData.tracks)[0];
+    const raw = scheduleData.tracks[firstTrackName]?.days || [];
+    if (raw.length > 0 && !raw[0].items) {
       return [{
         dayTitle: 'Day 1 - Highlights',
         date: event?.date || '',
-        items: scheduleRaw
+        items: raw
       }];
     }
-    return scheduleRaw;
-  }, [scheduleRaw, event?.date]);
+    return raw;
+  }, [scheduleData, event?.date]);
 
-  const whyAttend = useMemo(() => event?.highlights || WHY_ATTEND_DEFAULTS, [event?.highlights]);
+  useEffect(() => {
+    if (scheduleData.activeTrack && !activeScheduleTrack) {
+      setActiveScheduleTrack(scheduleData.activeTrack);
+    }
+  }, [scheduleData.activeTrack]);
 
   // Stats with animated counters
   const exhibitingPartners = useMemo(() => exhibitors.filter(e => e.isExhibitor !== false), [exhibitors]);
@@ -763,14 +807,19 @@ export default function EventDetail() {
 
           {schedule.length > 0 ? (
             <div className="schedule-multi-day-container">
-              {/* Day Tabs if multiple days */}
+              {/* Day Tabs */}
               {schedule.length > 1 && (
-                <div className="schedule-day-tabs">
+                <div className="schedule-day-tabs" style={{ marginBottom: '24px' }}>
                   {schedule.map((day, idx) => (
                     <button 
                       key={idx} 
                       className={`day-tab-btn ${activeScheduleDay === idx ? 'active' : ''}`}
-                      style={activeScheduleDay === idx ? { '--active-color': eventColor } : {}}
+                      style={{
+                        padding: '6px 16px',
+                        fontSize: '0.8rem',
+                        height: 'auto',
+                        '--active-color': eventColor
+                      }}
                       onClick={() => setActiveScheduleDay(idx)}
                     >
                       Day {idx + 1}
@@ -779,36 +828,136 @@ export default function EventDetail() {
                 </div>
               )}
 
-              {/* Active Day Content */}
-              {schedule[activeScheduleDay] && (
-                <div className="schedule-day-highlights" style={{ 
-                  '--schedule-color': event?.scheduleSettings?.color || eventColor,
-                  '--accent-color': event?.scheduleSettings?.accent || '#B4A076'
-                }}>
-                  <div className="highlights-header-container">
-                    <div className="highlights-title-badge">
-                      {schedule[activeScheduleDay].dayTitle || `DAY ${activeScheduleDay + 1} - HIGHLIGHTS`}
-                    </div>
-                    {schedule[activeScheduleDay].date && (
-                      <div className="highlights-date-card">
-                        {schedule[activeScheduleDay].date}
-                      </div>
-                    )}
-                  </div>
+              {/* Vertical Tracks with Tabulated Items */}
+              <div className="tracks-vertical-container" style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                {Object.keys(scheduleData.tracks)
+                  .sort((a, b) => {
+                    // Always put Exhibition first, then sort others alphabetically
+                    if (a.toLowerCase() === 'exhibition') return -1;
+                    if (b.toLowerCase() === 'exhibition') return 1;
+                    return a.localeCompare(b);
+                  })
+                  .map((trackName) => {
+                    const trackData = scheduleData.tracks[trackName];
+                    const day = trackData.days[activeScheduleDay];
+                    const trackColor = trackData.color || eventColor;
+                    if (!day || !day.items || day.items.length === 0) return null;
 
-                  <div className="highlights-items-list">
-                    {(schedule[activeScheduleDay].items || []).map((item, i) => (
-                      <div key={i} className="highlight-item">
-                        <div className="highlight-time">{item.time}</div>
-                        <div className="highlight-content">
-                          <div className="highlight-title">{item.title}</div>
-                          {item.description && <div className="highlight-desc">{item.description}</div>}
-                        </div>
+                  return (
+                    <div key={trackName} className="schedule-track-group">
+                      {/* Slim Track Label */}
+                      <div className="track-label-slim" style={{ 
+                        fontSize: '0.75rem', 
+                        fontWeight: 800, 
+                        color: trackColor, 
+                        textTransform: 'uppercase', 
+                        letterSpacing: '1px',
+                        marginBottom: '8px',
+                        paddingLeft: '4px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px'
+                      }}>
+                        {trackName}
+                        <div style={{ flex: 1, height: '1px', background: `${trackColor}20` }} />
                       </div>
-                    ))}
-                  </div>
-                </div>
-              )}
+
+                      {/* Tabulated Sessions */}
+                      <div className="tabulated-sessions" style={{ background: '#fff', borderRadius: '12px', border: '1px solid #f1f5f9', overflow: 'hidden', boxShadow: '0 4px 20px rgba(0,0,0,0.03)' }}>
+                        {day.items.map((item, i) => (
+                          <div key={i} className="session-table-row" style={{ 
+                            display: 'flex', 
+                            borderBottom: i === day.items.length - 1 ? 'none' : '1px solid #f1f5f9',
+                            padding: 0,
+                            gap: 0,
+                            alignItems: 'stretch',
+                            transition: 'background 0.2s ease'
+                          }}>
+                            {/* Time Column (Wider for ranges) */}
+                            <div className="session-time-col" style={{ 
+                              minWidth: '160px', 
+                              width: '160px',
+                              fontSize: '0.85rem', 
+                              fontWeight: 900, 
+                              color: trackColor,
+                              padding: '24px 16px',
+                              background: `${trackColor}05`,
+                              borderRight: `2px solid ${trackColor}10`,
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              textAlign: 'center',
+                              letterSpacing: '-0.5px'
+                            }}>
+                              {item.time}
+                            </div>
+                            
+                            {/* Content Column */}
+                            <div className="session-content-col" style={{ flex: 1, padding: '20px 24px' }}>
+                              <div className="session-hierarchy-container">
+                                {/* Primary: Topic or Title */}
+                                <div className="session-primary-title" style={{ 
+                                  fontSize: '1.1rem', 
+                                  fontWeight: 800, 
+                                  color: '#1e293b', 
+                                  marginBottom: '8px',
+                                  lineHeight: '1.4'
+                                }}>
+                                  {item.topic || item.title}
+                                </div>
+
+                                {/* Secondary: Meta Info (Speaker & Uni) */}
+                                {(item.speaker || item.university) && (
+                                  <div className="session-meta-row" style={{ 
+                                    display: 'flex', 
+                                    flexWrap: 'wrap', 
+                                    gap: '16px', 
+                                    marginBottom: (item.description || (item.topic && item.title)) ? '12px' : '0',
+                                    alignItems: 'center'
+                                  }}>
+                                    {item.speaker && (
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem', color: '#475569', fontWeight: 600 }}>
+                                        <div style={{ width: '24px', height: '24px', borderRadius: '50%', background: `${trackColor}15`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: trackColor }}>
+                                          <User size={14} />
+                                        </div>
+                                        {item.speaker}
+                                      </div>
+                                    )}
+                                    {item.university && (
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem', color: '#64748b' }}>
+                                        <GraduationCap size={16} style={{ color: '#94a3b8' }} />
+                                        {item.university}
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+
+                                {/* Tertiary: Description or Additional Title */}
+                                {(item.description || (item.topic && item.title)) && (
+                                  <div style={{ 
+                                    fontSize: '0.9rem', 
+                                    color: '#64748b', 
+                                    lineHeight: '1.6',
+                                    padding: '10px 14px',
+                                    background: '#f8fafc',
+                                    borderRadius: '8px',
+                                    borderLeft: `3px solid ${trackColor}40`
+                                  }}>
+                                    {item.topic && item.title && item.title !== item.topic && (
+                                      <div style={{ fontWeight: 700, color: '#334155', marginBottom: '4px' }}>{item.title}</div>
+                                    )}
+                                    {item.description}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           ) : (
             <div className="schedule-empty-state">
@@ -1008,7 +1157,15 @@ export default function EventDetail() {
       <ExhibitorDetailModal isOpen={showExhibitorDetailModal} onClose={() => setShowExhibitorDetailModal(false)} exhibitor={selectedExhibitor} eventColor={eventColor} />
       <TierSettingsModal isOpen={showTierSettingsModal} onClose={() => setShowTierSettingsModal(false)} event={event} onSaved={loadEventData} />
       <FloorPlanBuilder isOpen={showFloorPlanBuilder} onClose={() => setShowFloorPlanBuilder(false)} eventId={event?.id} exhibitors={exhibitors} sponsorTiers={event?.sponsorTiers || DEFAULT_TIERS} onSaved={checkFloorPlan} />
-      <FloorPlanViewer isOpen={showFloorPlanViewer} onClose={() => setShowFloorPlanViewer(false)} eventId={event?.id} sponsorTiers={event?.sponsorTiers || DEFAULT_TIERS} event={event} exhibitors={exhibitors} />
+      <FloorPlanViewer
+        isOpen={showFloorPlanViewer}
+        onClose={() => setShowFloorPlanViewer(false)}
+        eventId={event?.id}
+        sponsorTiers={event?.sponsorTiers}
+        event={event}
+        exhibitors={exhibitors}
+        isAdmin={isAdmin}
+      />
       <GalleryAdminModal isOpen={showGalleryModal} onClose={() => setShowGalleryModal(false)} event={event} onSaved={() => loadEventData(false)} />
       <SpeakerAdminModal isOpen={showSpeakerModal} onClose={() => setShowSpeakerModal(false)} event={event} onSaved={() => loadEventData(false)} />
       <ScheduleAdminModal 
