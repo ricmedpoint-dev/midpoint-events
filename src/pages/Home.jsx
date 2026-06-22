@@ -1,8 +1,74 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowUpRight, Calendar, MapPin, Clock, ChevronLeft, ChevronRight, GraduationCap, Globe, Users, Presentation, CalendarCheck, Megaphone, Play, Heart, MessageCircle } from 'lucide-react';
-import { getBanners, getAboutText } from '../firebase/firestore';
+import { getBanners, getAboutText, getEvents } from '../firebase/firestore';
 import PlaceholderImage from '../components/PlaceholderImage';
+
+function parseEventDate(dateStr) {
+  if (!dateStr) return null;
+  try {
+    const cleaned = dateStr.replace(/(\d+)\s*-\s*(\d+)/, '$1');
+    const d = new Date(cleaned);
+    return isNaN(d.getTime()) ? null : d;
+  } catch { return null; }
+}
+
+function parseEventEndDate(dateStr) {
+  if (!dateStr) return null;
+  try {
+    let target = dateStr;
+    if (dateStr.includes('-')) {
+      const parts = dateStr.split('-');
+      const startPart = parts[0].trim();
+      const endPart = parts[1].trim();
+      if (/^\d+$/.test(endPart)) {
+        target = startPart.replace(/^\d+/, endPart);
+      } else {
+        target = endPart;
+      }
+    }
+    const d = new Date(target);
+    if (isNaN(d.getTime())) return null;
+    d.setHours(23, 59, 59, 999);
+    return d;
+  } catch { return null; }
+}
+
+function isEventFinished(event) {
+  let end = null;
+  if (event.endDate) {
+    end = new Date(event.endDate);
+  }
+  if (!end || isNaN(end.getTime())) {
+    end = parseEventEndDate(event.date);
+  }
+  
+  if (!end || isNaN(end.getTime())) {
+    let start = null;
+    if (event.startDate) {
+      start = new Date(event.startDate);
+    } else {
+      start = parseEventDate(event.date);
+    }
+    if (start && !isNaN(start.getTime())) {
+      return start.getTime() < new Date().getTime();
+    }
+    return false;
+  }
+  
+  return new Date().getTime() > end.getTime();
+}
+
+function getEventSortDate(event) {
+  let dateObj = null;
+  if (event.startDate) {
+    dateObj = new Date(event.startDate);
+  }
+  if (!dateObj || isNaN(dateObj.getTime())) {
+    dateObj = parseEventDate(event.date);
+  }
+  return dateObj ? dateObj.getTime() : 0;
+}
 
 const solutionsData = [
   {
@@ -41,6 +107,13 @@ const fallbackAbout = {
   title: 'CONNECTING EDUCATION COMMUNITIES THROUGH PREMIER EVENTS',
   body: 'Midpoint Events is an Exhibition Organizer which specialises in Education Events & Hosting highly beneficial International Exhibitors of great repute. Midpoint strives to exceed the expectations of its clients by bringing together concepts and hosting prestigious events that educate & entertain its clients while promoting and supporting the Higher Education.',
 };
+
+const fallbackEvents = [
+  { id: 'gcc-exhibition-2024', slug: 'gcc-exhibition-2024', title: 'GCC Exhibition 2024', language: 'English / Arabic', date: '25 - 27 September 2024', location: 'Manarat, Al Saadiyat, UAE', image: '/events/gcc-exhibition-2024.png', description: 'The GCC Exhibition for Education and Training is a prominent annual event designed to provide students with a comprehensive platform to explore educational opportunities and make informed decisions about their future.' },
+  { id: 'gcc-exhibition-rak', slug: 'gcc-exhibition-rak', title: 'GCC Exhibition RAK', language: 'English / Arabic', date: '28 - 29 October 2025', location: 'RAK Exhibition Center, UAE', image: '/events/gcc-exhibition-rak.png', description: 'Join us for the GCC Exhibition RAK, where leading educational institutions from the region and beyond gather to showcase their programs.' },
+  { id: 'iue-riyadh', slug: 'iue-riyadh', title: 'International University Expo', language: 'English / Arabic', date: 'January 2025', location: 'Riyadh, Saudi Arabia', image: '/events/iue-riyadh.png', description: 'The International University Expo in Riyadh brings together top universities from around the world.' },
+  { id: 'gcc-al-ain', slug: 'gcc-al-ain', title: 'GCC Exhibition Al Ain', language: 'English / Arabic', date: '28 - 29 April 2025', location: 'ADNEC Al Ain, UAE', image: '/events/gcc-al-ain.png', description: 'Experience the latest in education and training at the GCC Exhibition Al Ain.' },
+];
 
 /* ── Drag-to-scroll hook ── */
 function useDragScroll() {
@@ -208,8 +281,64 @@ const academicPartners = [
   '/images/partners/partners-4.png',
 ];
 
-function EventAccordion({ group }) {
+function getFirestoreEvent(endedEvents, groupId, city, year) {
+  if (!endedEvents || endedEvents.length === 0) return null;
+  
+  const normGroup = (groupId || '').toLowerCase();
+  const normCity = (city || '').toLowerCase();
+  const normYear = String(year);
+  
+  return endedEvents.find(e => {
+    const title = (e.title || '').toLowerCase();
+    const slug = (e.slug || '').toLowerCase();
+    const location = (e.location || '').toLowerCase();
+    
+    // Check if it belongs to the group
+    let matchesGroup = false;
+    if (normGroup === 'gcc-exhibition') {
+      matchesGroup = title.includes('gcc') || slug.includes('gcc');
+    } else if (normGroup === 'iue') {
+      matchesGroup = title.includes('iue') || slug.includes('iue') || title.includes('international university expo');
+    }
+    
+    if (!matchesGroup) return false;
+    
+    // Check if it matches the city
+    let matchesCity = false;
+    if (normCity.includes('abu dhabi')) {
+      matchesCity = location.includes('abu dhabi') || location.includes('saadiyat') || slug.includes('2024') || slug.includes('2025');
+    } else if (normCity.includes('ras al khaimah') || normCity.includes('rak')) {
+      matchesCity = location.includes('rak') || location.includes('ras al') || slug.includes('rak');
+    } else if (normCity.includes('al ain')) {
+      matchesCity = location.includes('al ain') || slug.includes('al-ain');
+    } else if (normCity.includes('riyadh')) {
+      matchesCity = location.includes('riyadh') || slug.includes('riyadh');
+    }
+    
+    if (!matchesCity) return false;
+    
+    // Check if it matches the year
+    let eventYear = null;
+    if (e.startDate) {
+      eventYear = new Date(e.startDate).getFullYear();
+    } else if (e.date) {
+      const match = e.date.match(/\b(20\d{2})\b/);
+      if (match) eventYear = parseInt(match[1]);
+    }
+    
+    return String(eventYear) === normYear;
+  });
+}
+
+function EventAccordion({ group, endedEvents }) {
   const [isOpen, setIsOpen] = useState(false);
+  const navigate = useNavigate();
+
+  const getYearFromDate = (dateStr) => {
+    if (!dateStr) return '2025';
+    const m = dateStr.match(/\b(20\d{2})\b/);
+    return m ? m[1] : '2025';
+  };
 
   return (
     <div className={`event-accordion-group ${isOpen ? 'is-open' : ''}`}>
@@ -231,101 +360,138 @@ function EventAccordion({ group }) {
         <div className="accordion-content-inner">
           {group.events.length > 0 ? (
             <div className="nested-events-list">
-              {group.events.map((event, idx) => (
-                <div key={idx} className="nested-event-card">
-                  <div className="nested-event-header">
-                    <h4>{event.city || event.title}</h4>
-                    {event.date && <span className="event-date-tag">{event.date}</span>}
-                    {event.year && <span className="event-date-tag">{event.year}</span>}
-                  </div>
-                  
-                  {/* Summary for groups like Riyadh Expo */}
-                  {event.summary && <p className="event-group-summary-text">{event.summary}</p>}
+              {group.events.map((event, idx) => {
+                // If it's a single city event, we match it directly
+                const hasEditions = !!event.editions;
+                const singleMatch = !hasEditions ? getFirestoreEvent(endedEvents, group.id, event.city || event.title, getYearFromDate(event.date || event.year)) : null;
 
-                  {/* Patronage & Partnership (e.g. BTraining) */}
-                  {(event.patronage || event.partnership) && (
-                    <div className="event-patronage-box">
-                      {event.patronage && <p className="patronage-text">{event.patronage}</p>}
-                      {event.partnership && <p className="partnership-text">{event.partnership}</p>}
-                    </div>
-                  )}
-
-                  {/* History/Introduction text */}
-                  {event.history && <p className="event-history-intro">{event.history}</p>}
-
-                  {/* Timeline Grid (e.g. BTraining) */}
-                  {event.timeline && (
-                    <div className="event-timeline-grid">
-                      {event.timeline.map((year, yIdx) => (
-                        <div key={yIdx} className={`timeline-year-chip ${yIdx % 2 === 0 ? 'even' : 'odd'}`}>
-                          {year}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  
-                  {event.editions ? (
-                    <div className="editions-list">
-                      {event.editions.map((ed, edIdx) => (
-                        <div key={edIdx} className="edition-row">
-                          <div className="edition-badge">
-                            <span className="ed-label">EDITION</span>
-                            <span className="ed-num">{ed.edition}</span>
-                          </div>
-                          <div className="edition-main">
-                            <div className="ed-top">
-                              <span className="ed-year">{ed.year}</span>
-                              <span className="ed-location">{ed.location}</span>
-                            </div>
-                            {ed.date && <p className="ed-date-sub">{ed.date}</p>}
-                            <p className="ed-stats">{ed.stats}</p>
-                            <p className="ed-details">{ed.details}</p>
-                          </div>
-                        </div>
-                      ))}
-                      {event.officialSupport && (
-                        <div className="official-support">
-                          <strong>Official Support:</strong> {event.officialSupport}
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="event-simple-details">
-                      {(event.location || event.details) && (
-                        <div className="detail-row">
-                          <MapPin size={14} />
-                          <span>{event.location || event.details}</span>
-                        </div>
-                      )}
-                      {event.inauguratedBy && (
-                        <div className="inauguration-badge">
-                          <span className="in-label">Inaugurated by:</span>
-                          <span className="in-name">{event.inauguratedBy}</span>
-                          <span className="in-title">{event.inauguratedTitle}</span>
-                        </div>
-                      )}
+                return (
+                  <div key={idx} className="nested-event-card">
+                    <div className="nested-event-header" style={{ display: 'flex', alignItems: 'center', width: '100%', justifyContent: 'space-between', gap: '12px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                        <h4>{event.city || event.title}</h4>
+                        {event.date && <span className="event-date-tag">{event.date}</span>}
+                        {event.year && <span className="event-date-tag">{event.year}</span>}
+                      </div>
                       
-                      {event.stats && Array.isArray(event.stats) && (
-                        <ul className="stats-list">
-                          {event.stats.map((stat, sIdx) => (
-                            <li key={sIdx}>{stat}</li>
-                          ))}
-                        </ul>
-                      )}
-
-                      {event.stats && typeof event.stats === 'string' && (
-                        <p className="simple-stats-text">{event.stats}</p>
-                      )}
-
-                      {event.partnershipWith && (
-                        <div className="partnership-tag">
-                          In Partnership with <strong>{event.partnershipWith}</strong>
-                        </div>
+                      {singleMatch && (
+                        <span 
+                          className="view-hub-link header-link" 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(`/event/${singleMatch.slug}`, { state: { event: singleMatch } });
+                          }}
+                        >
+                          View Event Hub <ArrowUpRight size={12} />
+                        </span>
                       )}
                     </div>
-                  )}
-                </div>
-              ))}
+                    
+                    {/* Summary for groups like Riyadh Expo */}
+                    {event.summary && <p className="event-group-summary-text">{event.summary}</p>}
+
+                    {/* Patronage & Partnership (e.g. BTraining) */}
+                    {(event.patronage || event.partnership) && (
+                      <div className="event-patronage-box">
+                        {event.patronage && <p className="patronage-text">{event.patronage}</p>}
+                        {event.partnership && <p className="partnership-text">{event.partnership}</p>}
+                      </div>
+                    )}
+
+                    {/* History/Introduction text */}
+                    {event.history && <p className="event-history-intro">{event.history}</p>}
+
+                    {/* Timeline Grid (e.g. BTraining) */}
+                    {event.timeline && (
+                      <div className="event-timeline-grid">
+                        {event.timeline.map((year, yIdx) => (
+                          <div key={yIdx} className={`timeline-year-chip ${yIdx % 2 === 0 ? 'even' : 'odd'}`}>
+                            {year}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    
+                    {hasEditions ? (
+                      <div className="editions-list">
+                        {event.editions.map((ed, edIdx) => {
+                          const edMatch = getFirestoreEvent(endedEvents, group.id, event.city, ed.year);
+                          return (
+                            <div key={edIdx} className="edition-row">
+                              <div className="edition-badge">
+                                <span className="ed-label">EDITION</span>
+                                <span className="ed-num">{ed.edition}</span>
+                              </div>
+                              <div className="edition-main">
+                                <div className="ed-top" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
+                                  <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                                    <span className="ed-year">{ed.year}</span>
+                                    <span className="ed-location">{ed.location}</span>
+                                  </div>
+                                  
+                                  {edMatch && (
+                                    <span 
+                                      className="view-hub-link" 
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        navigate(`/event/${edMatch.slug}`, { state: { event: edMatch } });
+                                      }}
+                                    >
+                                      View Event Hub <ArrowUpRight size={12} />
+                                    </span>
+                                  )}
+                                </div>
+                                {ed.date && <p className="ed-date-sub">{ed.date}</p>}
+                                <p className="ed-stats">{ed.stats}</p>
+                                <p className="ed-details">{ed.details}</p>
+                              </div>
+                            </div>
+                          );
+                        })}
+                        {event.officialSupport && (
+                          <div className="official-support">
+                            <strong>Official Support:</strong> {event.officialSupport}
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="event-simple-details">
+                        {(event.location || event.details) && (
+                          <div className="detail-row">
+                            <MapPin size={14} />
+                            <span>{event.location || event.details}</span>
+                          </div>
+                        )}
+                        {event.inauguratedBy && (
+                          <div className="inauguration-badge">
+                            <span className="in-label">Inaugurated by:</span>
+                            <span className="in-name">{event.inauguratedBy}</span>
+                            <span className="in-title">{event.inauguratedTitle}</span>
+                          </div>
+                        )}
+                        
+                        {event.stats && Array.isArray(event.stats) && (
+                          <ul className="stats-list">
+                            {event.stats.map((stat, sIdx) => (
+                              <li key={sIdx}>{stat}</li>
+                            ))}
+                          </ul>
+                        )}
+
+                        {event.stats && typeof event.stats === 'string' && (
+                          <p className="simple-stats-text">{event.stats}</p>
+                        )}
+
+                        {event.partnershipWith && (
+                          <div className="partnership-tag">
+                            In Partnership with <strong>{event.partnershipWith}</strong>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           ) : (
             <div className="empty-group-message">
@@ -340,6 +506,7 @@ function EventAccordion({ group }) {
 
 export default function Home() {
   const [banners, setBanners] = useState([]);
+  const [endedEvents, setEndedEvents] = useState([]);
   const [about, setAbout] = useState(fallbackAbout);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
@@ -412,15 +579,80 @@ export default function Home() {
     let cancelled = false;
     async function fetchData() {
       try {
-        const [b, ab] = await Promise.all([
-          getBanners(), getAboutText(),
+        const [b, evs, ab] = await Promise.all([
+          getBanners(), getEvents(), getAboutText(),
         ]);
         if (cancelled) return;
-        if (b.length) setBanners(b);
+
+        // Merge and deduplicate
+        const merged = [...b, ...evs];
+        const uniqueEvents = [];
+        const seenIds = new Set();
+        for (const item of merged) {
+          const identifier = item.slug || item.id;
+          if (identifier && !seenIds.has(identifier)) {
+            seenIds.add(identifier);
+            uniqueEvents.push(item);
+          }
+        }
+
+        // Use fallback if Firestore has no events
+        const sourceEvents = uniqueEvents.length > 0 ? uniqueEvents : fallbackEvents;
+
+        // Separate upcoming and ended
+        const upcoming = [];
+        const ended = [];
+        sourceEvents.forEach(e => {
+          const finished = isEventFinished(e);
+          const generatedSlug = e.slug || e.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
+          const eventItem = { ...e, finished, slug: generatedSlug };
+          if (finished) {
+            ended.push(eventItem);
+          } else {
+            upcoming.push(eventItem);
+          }
+        });
+
+        // Sort by custom order first, then chronologically
+        upcoming.sort((a, b) => {
+          const orderA = a.order !== undefined ? a.order : 9999;
+          const orderB = b.order !== undefined ? b.order : 9999;
+          if (orderA !== orderB) return orderA - orderB;
+          return getEventSortDate(a) - getEventSortDate(b);
+        });
+        ended.sort((a, b) => getEventSortDate(b) - getEventSortDate(a)); // Descending order
+
+        setBanners(upcoming);
+        setEndedEvents(ended);
         if (ab) setAbout(ab);
       } catch (err) {
         if (cancelled) return;
         console.warn('Using fallback data:', err.message);
+        
+        // Fallback for when network/fetch fails completely
+        const upcoming = [];
+        const ended = [];
+        fallbackEvents.forEach(e => {
+          const finished = isEventFinished(e);
+          const generatedSlug = e.slug || e.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
+          const eventItem = { ...e, finished, slug: generatedSlug };
+          if (finished) {
+            ended.push(eventItem);
+          } else {
+            upcoming.push(eventItem);
+          }
+        });
+        upcoming.sort((a, b) => {
+          const orderA = a.order !== undefined ? a.order : 9999;
+          const orderB = b.order !== undefined ? b.order : 9999;
+          if (orderA !== orderB) return orderA - orderB;
+          return getEventSortDate(a) - getEventSortDate(b);
+        });
+        ended.sort((a, b) => getEventSortDate(b) - getEventSortDate(a));
+        
+        setBanners(upcoming);
+        setEndedEvents(ended);
+        if (fallbackAbout) setAbout(fallbackAbout);
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -641,7 +873,7 @@ export default function Home() {
         <h2 className="section-title-app">Previous Events</h2>
         <div className="previous-events-accordions">
           {groupedPreviousEvents.map(group => (
-            <EventAccordion key={group.id} group={group} />
+            <EventAccordion key={group.id} group={group} endedEvents={endedEvents} />
           ))}
         </div>
       </section>

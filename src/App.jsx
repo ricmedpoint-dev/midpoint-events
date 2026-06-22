@@ -3,6 +3,7 @@ import { useEffect } from 'react';
 import TopHeader from './components/TopHeader';
 import BottomNav from './components/BottomNav';
 import Home from './pages/Home';
+import Events from './pages/Events';
 import EventDetail from './pages/EventDetail';
 import Login from './pages/Login';
 import SeedPage from './pages/SeedPage';
@@ -41,6 +42,7 @@ function AppLayout() {
       <main className={isAuthPage ? "login-main" : "app-main"}>
         <Routes>
           <Route path="/" element={<Home />} />
+          <Route path="/events" element={<Events />} />
           <Route path="/event/:slug" element={<EventDetail />} />
           <Route path="/login" element={<Login />} />
           <Route path="/admin" element={

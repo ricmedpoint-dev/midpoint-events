@@ -368,8 +368,12 @@ export default function EventDetail() {
   };
 
   useEffect(() => {
-    if (event && event.slug === slug) { setLoading(false); return; }
-    loadEventData(true);
+    // If we have an initial event passed via state (e.g. from Home or Events directory),
+    // we use it to immediately render the page for great UX.
+    // However, we still fetch the fresh document from the server in the background
+    // to check for latest details and resolve to the 'events' collection document if one exists.
+    const isInitial = !event || event.slug !== slug;
+    loadEventData(isInitial);
   }, [slug]);
 
   // Disable body scroll when event detail is open

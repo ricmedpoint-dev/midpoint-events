@@ -1,17 +1,20 @@
 import { useNavigate } from 'react-router-dom';
 import { Shield, ArrowLeft, Plus, Trash2, Link as LinkIcon, Upload, X, Save, Image as ImageIcon, Video, Edit2, Home, User } from 'lucide-react';
 import { useState, useEffect } from 'react';
-import { getBanners, addBanner, deleteBanner, updateBanner } from '../firebase/firestore';
+import { getBanners, addBanner, deleteBanner, updateBanner, getEvents, addEvent, updateEvent, deleteEvent } from '../firebase/firestore';
 import { useAuth } from '../context/AuthContext';
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
   const [banners, setBanners] = useState([]);
+  const [eventsList, setEventsList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showAddBanner, setShowAddBanner] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState(null);
+  const [activeTab, setActiveTab] = useState('banners'); // 'banners' or 'events'
+  const [draggedIdx, setDraggedIdx] = useState(null);
   const { isAdmin } = useAuth();
 
   // Form State
@@ -70,13 +73,18 @@ export default function AdminDashboard() {
   }, [formData.startDate, formData.endDate, autoFormat]);
 
   useEffect(() => {
-    fetchBanners();
+    fetchData();
   }, []);
 
-  async function fetchBanners() {
+  async function fetchData() {
+    setLoading(true);
     try {
-      const data = await getBanners();
-      setBanners(data);
+      const [bannersData, eventsData] = await Promise.all([
+        getBanners(),
+        getEvents()
+      ]);
+      setBanners(bannersData);
+      setEventsList(eventsData);
     } catch (err) {
       console.error('Fetch error:', err);
     } finally {
@@ -170,17 +178,34 @@ export default function AdminDashboard() {
     e.preventDefault();
     setIsSubmitting(true);
     
+    // Generate slug if not present
+    const generatedSlug = formData.slug || formData.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
+    
     // Transform Google Drive links if present
+    // Dynamically calculate the next display order value for new items
+    const nextOrder = activeTab === 'banners' ? (banners.length + 1) : (eventsList.length + 1);
     const finalFormData = {
       ...formData,
+      order: editingId ? formData.order : nextOrder,
+      slug: generatedSlug,
       mediaUrl: transformGoogleDriveUrl(formData.mediaUrl)
     };
 
     try {
-      if (editingId) {
-        await updateBanner(editingId, finalFormData);
+      if (activeTab === 'banners') {
+        if (editingId) {
+          await updateBanner(editingId, finalFormData);
+        } else {
+          // Adding a banner automatically adds it as an event too!
+          await addBanner(finalFormData);
+          await addEvent(finalFormData);
+        }
       } else {
-        await addBanner(finalFormData);
+        if (editingId) {
+          await updateEvent(editingId, finalFormData);
+        } else {
+          await addEvent(finalFormData);
+        }
       }
 
       setFormData({
@@ -191,6 +216,9 @@ export default function AdminDashboard() {
         eventTime: '',
         eventCode: '',
         location: '',
+        description: '',
+        eventColor: '#E31E24',
+        order: 1,
         language: 'English / Arabic',
         mediaUrl: '',
         mediaType: 'image'
@@ -198,7 +226,7 @@ export default function AdminDashboard() {
       setAutoFormat(true);
       setShowAddBanner(false);
       setEditingId(null);
-      fetchBanners();
+      fetchData();
     } catch (err) {
       alert('Save failed: ' + err.message);
     } finally {
@@ -206,24 +234,24 @@ export default function AdminDashboard() {
     }
   };
 
-  const handleEdit = (banner) => {
+  const handleEdit = (item) => {
     setFormData({
-      title: banner.title,
-      date: banner.date || '',
-      startDate: banner.startDate || '',
-      endDate: banner.endDate || '',
-      eventTime: banner.eventTime || '',
-      eventCode: banner.eventCode || '',
-      location: banner.location || '',
-      description: banner.description || '',
-      eventColor: banner.eventColor || '#E31E24',
-      order: banner.order !== undefined ? banner.order : 1,
-      language: banner.language || 'English / Arabic',
-      mediaUrl: banner.mediaUrl,
-      mediaType: banner.mediaType || 'image'
+      title: item.title,
+      date: item.date || '',
+      startDate: item.startDate || '',
+      endDate: item.endDate || '',
+      eventTime: item.eventTime || '',
+      eventCode: item.eventCode || '',
+      location: item.location || '',
+      description: item.description || '',
+      eventColor: item.eventColor || '#E31E24',
+      order: item.order !== undefined ? item.order : 1,
+      language: item.language || 'English / Arabic',
+      mediaUrl: item.mediaUrl || '',
+      mediaType: item.mediaType || 'image'
     });
-    setAutoFormat(!!(banner.startDate || banner.endDate));
-    setEditingId(banner.id);
+    setAutoFormat(!!(item.startDate || item.endDate));
+    setEditingId(item.id);
     setShowAddBanner(true);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -232,6 +260,8 @@ export default function AdminDashboard() {
     setFormData({
       title: '',
       date: '',
+      startDate: '',
+      endDate: '',
       eventTime: '',
       eventCode: '',
       location: '',
@@ -244,15 +274,61 @@ export default function AdminDashboard() {
     });
     setEditingId(null);
     setShowAddBanner(false);
+    setAutoFormat(true);
   };
 
   const handleDelete = async (id) => {
     try {
-      await deleteBanner(id);
+      if (activeTab === 'banners') {
+        await deleteBanner(id);
+      } else {
+        await deleteEvent(id);
+      }
       setDeleteConfirmId(null);
-      fetchBanners();
+      fetchData();
     } catch (err) {
       alert('Delete failed: ' + err.message);
+    }
+  };
+
+  const handleDragStart = (e, index) => {
+    setDraggedIdx(index);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', index);
+  };
+
+  const handleDragOver = (e, index) => {
+    e.preventDefault();
+    if (draggedIdx === null || draggedIdx === index) return;
+
+    // Swap items in state array
+    const list = activeTab === 'banners' ? [...banners] : [...eventsList];
+    const draggedItem = list[draggedIdx];
+    list.splice(draggedIdx, 1);
+    list.splice(index, 0, draggedItem);
+
+    if (activeTab === 'banners') {
+      setBanners(list);
+    } else {
+      setEventsList(list);
+    }
+    setDraggedIdx(index);
+  };
+
+  const handleDragEnd = async () => {
+    setDraggedIdx(null);
+    try {
+      const list = activeTab === 'banners' ? banners : eventsList;
+      const promises = list.map((item, index) => {
+        const newOrder = index + 1;
+        if (item.order === newOrder) return Promise.resolve();
+        return activeTab === 'banners'
+          ? updateBanner(item.id, { order: newOrder })
+          : updateEvent(item.id, { order: newOrder });
+      });
+      await Promise.all(promises);
+    } catch (err) {
+      console.error('Failed to save new order:', err);
     }
   };
 
@@ -264,10 +340,25 @@ export default function AdminDashboard() {
           <span>Home</span>
         </button>
 
+        <div className="admin-tabs-nav">
+          <button 
+            className={`admin-tab-btn ${activeTab === 'banners' ? 'active' : ''}`}
+            onClick={() => { setActiveTab('banners'); resetForm(); }}
+          >
+            Homepage Banners
+          </button>
+          <button 
+            className={`admin-tab-btn ${activeTab === 'events' ? 'active' : ''}`}
+            onClick={() => { setActiveTab('events'); resetForm(); }}
+          >
+            Events Directory
+          </button>
+        </div>
+
         {showAddBanner && (
           <div className="admin-form-card">
             <div className="admin-form-header">
-              <h3>{editingId ? 'Edit Event Banner' : 'Add New Homepage Banner'}</h3>
+              <h3>{editingId ? (activeTab === 'banners' ? 'Edit Homepage Banner' : 'Edit Event') : (activeTab === 'banners' ? 'Add New Homepage Banner' : 'Add New Event')}</h3>
               <button className="close-form-btn" onClick={resetForm}>
                 <X size={20} />
               </button>
@@ -281,17 +372,6 @@ export default function AdminDashboard() {
                     value={formData.title}
                     onChange={e => setFormData({ ...formData, title: e.target.value })}
                     placeholder="e.g., GCC Exhibition 2024"
-                  />
-                </div>
-                <div className="admin-field">
-                  <label>Display Order (1st, 2nd...)</label>
-                  <input
-                    type="number"
-                    min="1"
-                    required
-                    value={formData.order}
-                    onChange={e => setFormData({ ...formData, order: parseInt(e.target.value) || 1 })}
-                    placeholder="1"
                   />
                 </div>
                 <div className="admin-field">
@@ -460,7 +540,15 @@ export default function AdminDashboard() {
 
               <button type="submit" className="admin-submit-btn" disabled={isSubmitting || !formData.mediaUrl}>
                 <Save size={18} />
-                <span>{isSubmitting ? 'Saving...' : editingId ? 'Update Banner' : 'Save Banner'}</span>
+                <span>
+                  {isSubmitting 
+                    ? 'Saving...' 
+                    : (activeTab === 'banners' 
+                        ? (editingId ? 'Update Banner' : 'Save Banner') 
+                        : (editingId ? 'Update Event' : 'Save Event')
+                      )
+                  }
+                </span>
               </button>
             </form>
           </div>
@@ -478,43 +566,50 @@ export default function AdminDashboard() {
                   <div className="add-icon-circle">
                     <Plus size={32} />
                   </div>
-                  <span>Add Homepage Banner</span>
+                  <span>{activeTab === 'banners' ? 'Add Homepage Banner' : 'Add Event'}</span>
                 </div>
               </div>
             )}
 
             {loading ? (
               <div className="admin-loading-placeholder">
-                <p>Loading banners...</p>
+                <p>Loading {activeTab === 'banners' ? 'banners' : 'events'}...</p>
               </div>
             ) : (
-              banners.map(banner => (
-                <div key={banner.id} className="admin-banner-card">
+              (activeTab === 'banners' ? banners : eventsList).map((item, index) => (
+                <div 
+                  key={item.id} 
+                  className={`admin-banner-card ${draggedIdx === index ? 'dragging' : ''}`}
+                  draggable
+                  onDragStart={(e) => handleDragStart(e, index)}
+                  onDragOver={(e) => handleDragOver(e, index)}
+                  onDragEnd={handleDragEnd}
+                >
                   <div className="card-media">
-                    {banner.mediaType === 'image' ? (
-                      <img src={banner.mediaUrl} alt={banner.title} />
+                    {item.mediaType === 'image' ? (
+                      <img src={item.mediaUrl} alt={item.title} />
                     ) : (
                       <div className="video-card-icon"><Video size={32} /></div>
                     )}
-                    <div className="card-badge">{banner.language}</div>
+                    <div className="card-badge">{item.language}</div>
                   </div>
                   <div className="card-info">
-                    <h3>{banner.title}</h3>
-                    <p className="card-meta">{banner.date} • {banner.location}</p>
+                    <h3>{item.title}</h3>
+                    <p className="card-meta">{item.date} • {item.location}</p>
                     <div className="card-actions-row">
-                      <button className="banner-edit-btn" onClick={() => handleEdit(banner)}>
+                      <button className="banner-edit-btn" onClick={() => handleEdit(item)}>
                         <Edit2 size={16} />
                         <span>Edit</span>
                       </button>
                       <button 
                         className="banner-edit-btn" 
                         style={{ backgroundColor: '#f0f9ff', color: '#0369a1', borderColor: '#bae6fd' }}
-                        onClick={() => navigate(`/event/${banner.slug || banner.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '')}`)}
+                        onClick={() => navigate(`/event/${item.slug || item.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '')}`)}
                       >
                         <User size={16} />
                         <span>Exhibitors</span>
                       </button>
-                      <button className="banner-delete-btn" onClick={() => setDeleteConfirmId(banner.id)}>
+                      <button className="banner-delete-btn" onClick={() => setDeleteConfirmId(item.id)}>
                         <Trash2 size={16} />
                         <span>Delete</span>
                       </button>
@@ -531,8 +626,8 @@ export default function AdminDashboard() {
       {deleteConfirmId && (
         <div className="admin-modal-backdrop">
           <div className="delete-modal-container">
-            <h3>Delete Banner?</h3>
-            <p>This action cannot be undone. Are you sure you want to remove this banner?</p>
+            <h3>Delete {activeTab === 'banners' ? 'Banner' : 'Event'}?</h3>
+            <p>This action cannot be undone. Are you sure you want to remove this {activeTab === 'banners' ? 'banner' : 'event'}?</p>
             <div className="delete-modal-actions">
               <button 
                 className="cancel-delete-btn" 

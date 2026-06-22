@@ -63,6 +63,28 @@ export async function getEvents() {
   return snap.docs.map(d => ({ id: d.id, _collection: 'events', ...d.data() }));
 }
 
+export async function addEvent(data) {
+  const colRef = collection(db, 'events');
+  const docRef = await addDoc(colRef, {
+    ...data,
+    createdAt: new Date().toISOString(),
+  });
+  return docRef.id;
+}
+
+export async function updateEvent(id, data) {
+  const docRef = doc(db, 'events', id);
+  await updateDoc(docRef, {
+    ...data,
+    updatedAt: new Date().toISOString(),
+  });
+}
+
+export async function deleteEvent(id) {
+  const docRef = doc(db, 'events', id);
+  await deleteDoc(docRef);
+}
+
 export async function getEventBySlug(slug) {
   // First try events collection
   const qEvents = query(collection(db, 'events'), where('slug', '==', slug));
